@@ -5,19 +5,19 @@ const Landing = () => {
   return (
     <main className="relative min-h-[calc(100vh-64px)] flex flex-col md:flex-row overflow-hidden px-6 md:px-12 lg:px-24 items-center bg-[#131314]">
       {/* Left Content Column */}
-      <div className="w-full md:w-1/2 z-30 py-12 md:py-24">
-        <div className="space-y-4 mb-12">
-          <span className="text-secondary font-bold text-xs uppercase tracking-[0.4em]">Lexical Excellence</span>
-          <h1 className="text-5xl md:text-7xl lg:text-9xl font-black tracking-tighter leading-[0.85] text-white uppercase">
+      <div className="w-full md:w-1/2 z-30 py-8 md:py-24">
+        <div className="space-y-4 mb-8 md:mb-12 text-center md:text-left">
+          <span className="text-secondary font-bold text-[10px] md:text-xs uppercase tracking-[0.4em]">Lexical Excellence</span>
+          <h1 className="text-6xl md:text-7xl lg:text-9xl font-black tracking-tighter leading-[0.85] text-white uppercase">
             COMP<br />
             <span className="text-primary">WORDLE</span>
           </h1>
-          <p className="text-[#818384] max-w-md text-sm font-bold uppercase tracking-widest leading-relaxed mt-4">
+          <p className="text-[#818384] max-w-sm mx-auto md:mx-0 text-[10px] md:text-sm font-bold uppercase tracking-widest leading-relaxed mt-4">
             The definitive technical arena for lexical combatants. Precision. Speed. Strategy.
           </p>
         </div>
         
-        <div className="flex flex-col space-y-2 max-w-sm">
+        <div className="flex flex-col space-y-2 max-w-sm mx-auto md:mx-0">
           <NavLink to="/dashboard" className="group flex items-center justify-between bg-[#1c1c1d] text-white px-6 py-5 border border-[#3a3a3c] font-black text-[10px] uppercase tracking-[0.3em] transition-all hover:bg-[#252526]">
             <span>Initialize Dashboard</span>
             <span className="material-symbols-outlined text-sm">arrow_forward</span>
@@ -34,7 +34,7 @@ const Landing = () => {
           </NavLink>
         </div>
 
-        <div className="mt-16 flex items-center gap-6">
+        <div className="mt-12 md:mt-16 flex flex-col md:flex-row items-center gap-6 justify-center md:justify-start">
           <div className="flex -space-x-0">
             {[1, 2, 3].map(i => (
               <div key={i} className="w-10 h-10 border border-[#3a3a3c] bg-[#1c1c1d] overflow-hidden grayscale">
@@ -48,8 +48,8 @@ const Landing = () => {
         </div>
       </div>
 
-      {/* RE-IMPLEMENTED FADED PERSPECTIVAL GRID */}
-      <div className="absolute right-[-5%] top-[5%] w-full md:w-3/5 h-[120%] pointer-events-none opacity-20 md:opacity-30 z-10 overflow-hidden">
+      {/* RE-IMPLEMENTED FADED PERSPECTIVAL GRID - Hidden on mobile for performance and clarity */}
+      <div className="absolute right-[-5%] top-[5%] w-full md:w-3/5 h-[120%] pointer-events-none opacity-10 md:opacity-30 z-10 overflow-hidden hidden md:block">
         <div className="perspectival-grid grid-fade w-full h-full flex items-center justify-center">
           <div className="grid grid-cols-5 gap-3 md:gap-4 p-8">
             {/* Row 1: TRAIN */}

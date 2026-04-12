@@ -18,6 +18,8 @@ const SinglePlayer = () => {
   const [letterStates, setLetterStates] = useState({});
   const [message, setMessage] = useState('');
   const [gameState, setGameState] = useState('playing');
+  const [shakeRowIndex, setShakeRowIndex] = useState(-1);
+  const [success, setSuccess] = useState(false);
 
   // Timer logic
   const [hasStarted, setHasStarted] = useState(false);
@@ -58,6 +60,8 @@ const SinglePlayer = () => {
     setTimer(0);
     setHasStarted(false);
     setStartTime(null);
+    setShakeRowIndex(-1);
+    setSuccess(false);
   }, []);
 
   const saveStats = async (finalState, finalRowIndex, solveTime) => {
@@ -92,6 +96,11 @@ const SinglePlayer = () => {
     if (time > 0) {
       setTimeout(() => setMessage(''), time);
     }
+  };
+
+  const shake = () => {
+    setShakeRowIndex(currentRowIndex);
+    setTimeout(() => setShakeRowIndex(-1), 500);
   };
 
   const onKey = useCallback((key) => {
@@ -129,10 +138,12 @@ const SinglePlayer = () => {
       const row = board[currentRowIndex];
       const guess = row.map(t => t.letter).join('');
       if (guess.length !== 5) {
+        shake();
         showMessage('Not enough letters');
         return;
       }
       if (!allWords.includes(guess)) {
+        shake();
         showMessage('Not in word list');
         return;
       }
@@ -168,6 +179,7 @@ const SinglePlayer = () => {
       setLetterStates(newLetterStates);
       if (guess === answer) {
         setGameState('won');
+        setTimeout(() => setSuccess(true), 1500);
         showMessage(['Genius', 'Magnificent', 'Impressive', 'Splendid', 'Great', 'Phew'][currentRowIndex], -1);
         saveStats('won', currentRowIndex, timer);
       } else if (currentRowIndex >= 5) {
@@ -186,7 +198,6 @@ const SinglePlayer = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onKey]);
 
-  // Authentic Wordle Styles: No rounded corners, no glows
   const getTileStyle = (state) => {
     switch (state) {
       case LetterState.CORRECT: return 'bg-primary border-none text-[#131314]';
@@ -214,42 +225,43 @@ const SinglePlayer = () => {
 
   return (
     <>
-      <main className="max-w-[1440px] mx-auto p-4 md:p-8 flex flex-col min-h-[calc(100vh-112px)]">
+      <main className="max-w-[1440px] mx-auto p-4 md:p-8 flex flex-col min-h-[calc(100vh-112px)] overflow-x-hidden">
         {message && (
-          <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-[#1c1d1c] text-white px-6 py-3 rounded border border-white/10 font-bold shadow-2xl animate-in fade-in zoom-in duration-300">
+          <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[60] bg-[#1c1d1c] text-white px-6 py-3 rounded border border-white/10 font-bold shadow-2xl animate-in fade-in zoom-in duration-300">
             {message}
           </div>
         )}
 
         <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-8 relative">
-          <div className="xl:col-span-3 space-y-6">
-            <div className="bg-[#1c1d1c] p-6 border-l-4 border-primary border border-white/5">
+          {/* Stats Column - Moves to bottom on smaller screens */}
+          <div className="order-2 xl:order-1 xl:col-span-3 space-y-4 md:space-y-6">
+            <div className="bg-[#1c1d1c] p-4 md:p-6 border-l-4 border-primary border border-white/5">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Win Streak</p>
               <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-black text-white">{currentStreak}</span>
+                <span className="text-3xl md:text-4xl font-black text-white">{currentStreak}</span>
                 <span className="text-primary text-[10px] font-bold uppercase tracking-widest">BEST: {maxStreak}</span>
               </div>
             </div>
 
-            <div className="bg-[#1c1d1c] p-6 border border-white/5 grid grid-cols-2">
+            <div className="bg-[#1c1d1c] p-4 md:p-6 border border-white/5 grid grid-cols-2">
               <div className="text-center">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1 text-xs">Today</p>
-                <div className="text-2xl font-black text-white tabular-nums">{formatTime(timer)}</div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Today</p>
+                <div className="text-xl md:text-2xl font-black text-white tabular-nums">{formatTime(timer)}</div>
               </div>
               <div className="text-center border-l border-white/10">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1 text-xs">Avg</p>
-                <div className="text-2xl font-black text-primary tabular-nums">{formatTime(avgTime)}</div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Avg</p>
+                <div className="text-xl md:text-2xl font-black text-primary tabular-nums">{formatTime(avgTime)}</div>
               </div>
             </div>
 
-            <div className="bg-[#1c1d1c] p-6 border border-white/5">
+            <div className="bg-[#1c1d1c] p-4 md:p-6 border border-white/5 hidden md:block">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">Guess Distribution</p>
               <div className="space-y-2">
                 {Object.entries(distribution).map(([guess, count]) => (
                   <div key={guess} className="flex items-center gap-2">
                     <span className="text-[10px] font-bold text-slate-500 w-4">{guess}</span>
                     <div className="flex-1 h-5 bg-[#121213] relative overflow-hidden">
-                      <div className="absolute inset-y-0 left-0 bg-[#538d4e]" style={{ width: `${totalWins > 0 ? (count / totalWins) * 100 : 0}%` }}></div>
+                      <div className="absolute inset-y-0 left-0 bg-primary/40" style={{ width: `${totalWins > 0 ? (count / totalWins) * 100 : 0}%` }}></div>
                       <span className="absolute right-2 text-[10px] font-bold text-white leading-5">{count}</span>
                     </div>
                   </div>
@@ -258,53 +270,68 @@ const SinglePlayer = () => {
             </div>
           </div>
 
-          <div className="xl:col-span-9 flex flex-col md:flex-row items-center justify-center py-4 gap-12">
-            <div className="flex flex-col items-center flex-1">
-              <div className="grid grid-rows-6 gap-1 mb-8">
+          {/* Game Board Column */}
+          <div className="order-1 xl:order-2 xl:col-span-9 flex flex-col items-center justify-start xl:justify-center py-2 md:py-4 gap-4 md:gap-12 w-full">
+            <div className="flex flex-col items-center w-full">
+              <div className="grid grid-rows-6 gap-1 md:gap-1.5 mb-4 md:mb-8">
                 {board.map((row, rIdx) => (
-                  <div key={rIdx} className="grid grid-cols-5 gap-1">
+                  <div key={rIdx} className={`grid grid-cols-5 gap-1 md:gap-1.5 ${shakeRowIndex === rIdx ? 'row-anim-shake' : ''}`}>
                     {row.map((tile, tIdx) => (
                       <div 
                         key={tIdx} 
-                        className={`w-14 h-14 md:w-16 md:h-16 flex items-center justify-center text-3xl font-bold transition-colors duration-500 ${getTileStyle(tile.state)}`}
+                        className={`w-14 h-14 sm:w-16 sm:h-16 relative tile-flip ${tile.state !== LetterState.INITIAL ? 'tile-revealed' : ''} ${tile.letter && tile.state === LetterState.INITIAL ? 'tile-anim-zoom' : ''}`}
                       >
-                        {tile.letter.toUpperCase()}
+                        <div 
+                          className={`tile-flip-inner ${success && rIdx === currentRowIndex ? 'tile-anim-jump' : ''}`}
+                          style={{ 
+                            transitionDelay: `${tIdx * 300}ms`,
+                            animationDelay: `${tIdx * 100}ms`
+                          }}
+                        >
+                          <div className={`tile-front w-full h-full text-2xl md:text-3xl font-bold border-2 ${tile.letter ? 'border-[#818384]' : 'border-[#3a3a3c]'} text-white`}>
+                            {tile.letter.toUpperCase()}
+                          </div>
+                          <div className={`tile-back w-full h-full text-2xl md:text-3xl font-bold text-[#131314] ${getTileStyle(tile.state)}`}>
+                            {tile.letter.toUpperCase()}
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
                 ))}
               </div>
 
-              <div className="w-full max-w-xl flex flex-col gap-2">
-                <div className="flex justify-center gap-1.5 px-1">
+              {/* Responsive Keyboard */}
+              <div className="w-full max-w-xl flex flex-col gap-1.5 md:gap-2 px-1">
+                <div className="flex justify-center gap-1 md:gap-1.5">
                   {['Q','W','E','R','T','Y','U','I','O','P'].map(k => (
-                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-14 rounded-md font-bold text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
+                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-12 md:h-14 font-black text-[10px] md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
                   ))}
                 </div>
-                <div className="flex justify-center gap-1.5 px-8">
+                <div className="flex justify-center gap-1 md:gap-1.5 px-4 md:px-8">
                   {['A','S','D','F','G','H','J','K','L'].map(k => (
-                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-14 rounded-md font-bold text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
+                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-12 md:h-14 font-black text-[10px] md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
                   ))}
                 </div>
-                <div className="flex justify-center gap-1.5 px-1">
-                  <button onClick={() => onKey('Enter')} className="px-4 h-14 rounded-md bg-[#818384] text-white font-bold text-xs active:opacity-75">ENTER</button>
+                <div className="flex justify-center gap-1 md:gap-1.5">
+                  <button onClick={() => onKey('Enter')} className="px-2 md:px-4 h-12 md:h-14 bg-[#818384] text-white font-black text-[9px] md:text-xs active:opacity-75">ENTER</button>
                   {['Z','X','C','V','B','N','M'].map(k => (
-                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-14 rounded-md font-bold text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
+                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-12 md:h-14 font-black text-[10px] md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
                   ))}
-                  <button onClick={() => onKey('Backspace')} className="px-4 h-14 rounded-md bg-[#818384] text-white flex items-center justify-center active:opacity-75">
-                    <span className="material-symbols-outlined text-xl">backspace</span>
+                  <button onClick={() => onKey('Backspace')} className="px-2 md:px-4 h-12 md:h-14 bg-[#818384] text-white flex items-center justify-center active:opacity-75">
+                    <span className="material-symbols-outlined text-lg md:text-xl">backspace</span>
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="w-[140px] flex items-center justify-center">
+            <div className="w-full flex items-center justify-center mt-4">
               {gameState !== 'playing' && (
                 <button 
                   onClick={resetGame}
-                  className="px-6 py-3 bg-[#538d4e] text-white font-bold text-sm hover:opacity-90 transition-all uppercase tracking-widest rounded-sm"
+                  className="w-full md:w-auto px-12 py-4 bg-primary text-[#131314] font-black text-xs hover:brightness-110 transition-all uppercase tracking-[0.2em]"
                 >
-                  Play Again
+                  New Mission
                 </button>
               )}
             </div>

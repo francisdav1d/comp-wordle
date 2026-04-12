@@ -11,7 +11,7 @@
   --radius-3xl: 0px;
 
   /* Stealth Analytical Palette */
-  --primary: #94d78c;
+  --primary: #75bb6e;
   --secondary: #d7c88c;
   --on-primary: #131314;
   --on-secondary: #131314;
@@ -101,4 +101,66 @@ h1, h2, h3, .font-headline, .headline-font {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #41493e;
+}
+/* Authentic Wordle Animations */
+@keyframes zoom {
+  0% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+@keyframes jump {
+  0%, 100% { transform: translateY(0); }
+  20% { transform: translateY(5px); }
+  60% { transform: translateY(-20px); }
+  90% { transform: translateY(3px); }
+}
+
+.tile-anim-zoom {
+  animation: zoom 0.1s ease-in-out;
+}
+
+.row-anim-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+.tile-anim-jump {
+  animation: jump 0.5s ease-in-out;
+}
+
+/* Flip Animations */
+.tile-flip {
+  perspective: 1000px;
+  transform-style: preserve-3d;
+}
+
+.tile-flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+}
+
+.tile-revealed .tile-flip-inner {
+  transform: rotateX(180deg);
+}
+
+.tile-front, .tile-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tile-back {
+  transform: rotateX(180deg);
 }

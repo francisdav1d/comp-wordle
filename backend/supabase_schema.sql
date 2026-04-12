@@ -1,4 +1,4 @@
--- Standard Stable Schema
+-- Advanced Competitive Schema
 DROP TABLE IF EXISTS public.profiles CASCADE;
 
 CREATE TABLE public.profiles (
@@ -7,13 +7,27 @@ CREATE TABLE public.profiles (
   display_name TEXT,
   avatar_url TEXT,
   email TEXT,
-  elo INTEGER DEFAULT 1000,
+  
+  -- Competitive ELO
+  single_player_elo INTEGER DEFAULT 1000,
+  multiplayer_elo INTEGER DEFAULT 1000,
   tier TEXT DEFAULT 'Bronze',
-  win_rate FLOAT DEFAULT 0.0,
+  
+  -- Match Stats
   wins INTEGER DEFAULT 0,
   total_matches INTEGER DEFAULT 0,
-  current_streak INTEGER DEFAULT 0,
-  max_streak INTEGER DEFAULT 0,
+  win_rate FLOAT DEFAULT 0.0,
+  
+  -- Streaks
+  current_daily_streak INTEGER DEFAULT 0,
+  max_daily_streak INTEGER DEFAULT 0,
+  current_win_streak INTEGER DEFAULT 0,
+  max_win_streak INTEGER DEFAULT 0,
+  
+  -- Analytical Metrics
+  avg_solve_time INTEGER DEFAULT 0, -- Store in seconds
+  guess_distribution JSONB DEFAULT '{"1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0}'::JSONB,
+  
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

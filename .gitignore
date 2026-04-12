@@ -45,3 +45,5 @@ designs_raw/
 *.jpeg
 *.svg
 !frontend/src/assets/**/*
+
+actuall_wordle/

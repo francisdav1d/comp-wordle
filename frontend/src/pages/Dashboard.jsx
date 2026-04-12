@@ -23,11 +23,11 @@ const Dashboard = () => {
           </h1>
           
           {/* Aligned Statistics Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
             {mainStats.map((stat) => (
-              <div key={stat.label} className="bg-[#131314] p-6 border border-[#3a3a3c]">
-                <div className="text-[9px] text-[#818384] font-bold uppercase tracking-[0.2em] mb-2">{stat.label}</div>
-                <div className={`text-3xl font-black tracking-tighter ${stat.color}`}>{stat.value}</div>
+              <div key={stat.label} className="bg-[#131314] p-4 md:p-6 border border-[#3a3a3c]">
+                <div className="text-[8px] md:text-[9px] text-[#818384] font-bold uppercase tracking-[0.2em] mb-2">{stat.label}</div>
+                <div className={`text-2xl md:text-3xl font-black tracking-tighter ${stat.color}`}>{stat.value}</div>
               </div>
             ))}
           </div>
@@ -35,7 +35,7 @@ const Dashboard = () => {
       </section>
 
       {/* Navigation Modules */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         <a href="/arena" className="bg-[#1c1c1d] p-8 border border-[#3a3a3c] group hover:border-primary/50 transition-all cursor-pointer block">
           <div className="flex justify-between items-start mb-6">
             <span className="material-symbols-outlined text-primary text-4xl">style</span>
