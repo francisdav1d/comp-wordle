@@ -44,80 +44,80 @@ const Login = () => {
 
   return (
     <main className="min-h-[calc(100vh-64px)] flex items-center justify-center p-6 bg-[#131314]">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-headline font-black text-white tracking-tighter mb-2">
-            Comp<span className="text-primary">Wordle</span>
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-black text-white tracking-widest uppercase mb-2">
+            COMP-W
           </h1>
-          <p className="text-slate-400 text-sm italic">The most competitive word game on the planet.</p>
+          <p className="text-[#818384] text-[10px] font-bold uppercase tracking-[0.2em]">Analytical Lexical Arena</p>
         </div>
 
-        <div className="bg-[#1c1b1c] p-8 rounded-xl border border-white/5 shadow-none">
-          {error && <div className="bg-red-500/10 text-red-500 p-3 rounded-lg text-xs font-bold mb-4">{error}</div>}
-          {message && <div className="bg-primary/10 text-primary p-3 rounded-lg text-xs font-bold mb-4">{message}</div>}
+        <div className="bg-[#1c1c1d] p-10 border border-[#3a3a3c]">
+          {error && <div className="bg-red-500/10 text-red-500 p-4 border border-red-500/20 text-[10px] font-bold uppercase tracking-widest mb-6">{error}</div>}
+          {message && <div className="bg-primary/10 text-primary p-4 border border-primary/20 text-[10px] font-bold uppercase tracking-widest mb-6">{message}</div>}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
             {isSignup && (
               <div>
-                <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest pl-1">Username</label>
+                <label className="text-[10px] text-[#818384] font-bold uppercase tracking-[0.2em] mb-2 block">Username</label>
                 <input 
                   type="text"
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full bg-[#2a292a] border-none rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:ring-1 focus:ring-primary/50 transition-all mt-1"
-                  placeholder="username"
+                  className="w-full bg-[#131314] border border-[#3a3a3c] px-4 py-3 text-sm text-white focus:border-primary/50 transition-all outline-none"
+                  placeholder="USERNAME"
                 />
               </div>
             )}
             <div>
-              <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest pl-1">Email</label>
+              <label className="text-[10px] text-[#818384] font-bold uppercase tracking-[0.2em] mb-2 block">Email Address</label>
               <input 
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-[#2a292a] border-none rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:ring-1 focus:ring-primary/50 transition-all mt-1"
-                placeholder="email@example.com"
+                className="w-full bg-[#131314] border border-[#3a3a3c] px-4 py-3 text-sm text-white focus:border-primary/50 transition-all outline-none"
+                placeholder="EMAIL@EXAMPLE.COM"
               />
             </div>
             <div>
-              <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest pl-1">Password</label>
+              <label className="text-[10px] text-[#818384] font-bold uppercase tracking-[0.2em] mb-2 block">Access Code</label>
               <input 
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-[#2a292a] border-none rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:ring-1 focus:ring-primary/50 transition-all mt-1"
+                className="w-full bg-[#131314] border border-[#3a3a3c] px-4 py-3 text-sm text-white focus:border-primary/50 transition-all outline-none"
                 placeholder="••••••••"
               />
             </div>
             <button 
               type="submit"
               disabled={isLoading}
-              className="w-full bg-primary text-[#131314] font-headline font-black py-4 rounded-xl text-lg hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 mt-4 shadow-none"
+              className="w-full bg-primary text-[#131314] font-black py-4 text-[10px] uppercase tracking-[0.3em] hover:brightness-110 active:brightness-90 transition-all disabled:opacity-50"
             >
-              {isLoading ? 'Loading...' : isSignup ? 'Sign Up' : 'Log In'}
+              {isLoading ? 'Processing...' : isSignup ? 'Initialize Account' : 'Authenticate Session'}
             </button>
           </form>
 
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
-            <div className="relative flex justify-center text-[10px] uppercase font-bold text-slate-500"><span className="bg-[#1c1b1c] px-2 tracking-widest">or</span></div>
+          <div className="relative my-10">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[#3a3a3c]"></div></div>
+            <div className="relative flex justify-center text-[10px] uppercase font-bold text-[#818384]"><span className="bg-[#1c1c1d] px-4 tracking-widest">or</span></div>
           </div>
 
           <button 
             type="button"
             onClick={loginWithGoogle}
-            className="w-full bg-white text-black font-headline font-bold py-3.5 rounded-xl flex items-center justify-center gap-3 hover:bg-slate-100 transition-all active:scale-[0.98] shadow-none"
+            className="w-full bg-white text-black font-bold py-4 flex items-center justify-center gap-3 hover:bg-slate-100 transition-all text-[10px] uppercase tracking-widest"
           >
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" className="w-5 h-5" />
-            Continue with Google
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" className="w-4 h-4" />
+            Sign in with Google
           </button>
 
-          <div className="mt-8 text-center text-xs font-bold uppercase tracking-widest">
-            <button onClick={() => setIsSignup(!isSignup)} className="text-primary hover:underline">
-              {isSignup ? "Already have an account? Log In" : "Don't have an account? Sign Up"}
+          <div className="mt-10 text-center">
+            <button onClick={() => setIsSignup(!isSignup)} className="text-[10px] font-bold uppercase tracking-widest text-[#818384] hover:text-primary transition-colors">
+              {isSignup ? "Terminating? Log In" : "New operative? Sign Up"}
             </button>
           </div>
         </div>

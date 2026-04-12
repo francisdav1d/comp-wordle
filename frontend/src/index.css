@@ -3,19 +3,58 @@
 
 :root {
   color-scheme: dark;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+
+  /* Stealth Analytical Palette */
+  --primary: #94d78c;
+  --secondary: #d7c88c;
+  --on-primary: #131314;
+  --on-secondary: #131314;
+  
+  --surface: #131314;
+  --surface-bright: #1c1c1d;
+  --on-surface: #ffffff;
+  --on-surface-variant: #818384;
+  
+  --outline: #3a3a3c;
+  --outline-variant: #3a3a3c;
 }
 
 body {
   margin: 0;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #131314;
-  color: #e5e2e3;
+  background-color: var(--surface);
+  color: var(--on-surface);
+  letter-spacing: -0.01em;
 }
 
 h1, h2, h3, .font-headline, .headline-font {
   font-family: 'Manrope', sans-serif;
+}
+
+/* Authentic Minimalist Component Overrides */
+.card, button, input {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border: 1px solid var(--outline);
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  color: var(--on-primary);
+  border: none;
+}
+
+.glow-none {
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 .material-symbols-outlined {

@@ -61,13 +61,17 @@ export const AuthProvider = ({ children }) => {
           username: user.user_metadata?.username || user.email.split('@')[0].toLowerCase(),
           email: user.email,
           avatar_url: `https://ui-avatars.com/api/?name=${user.email}&background=94d78c&color=131314`,
-          elo: 1000,
+          single_player_elo: 1000,
+          multiplayer_elo: 1000,
           tier: 'Bronze',
-          win_rate: 0,
           wins: 0,
           total_matches: 0,
-          current_streak: 0,
-          max_streak: 0,
+          current_daily_streak: 0,
+          max_daily_streak: 0,
+          current_win_streak: 0,
+          max_win_streak: 0,
+          avg_solve_time: 0,
+          guess_distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0 },
           created_at: new Date().toISOString(),
         };
 
@@ -86,6 +90,24 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const updateProfileStats = async (statsUpdate) => {
+    if (!user || !supabase) return;
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({
+        ...statsUpdate,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user.id)
+      .select()
+      .single();
+    
+    if (!error && data) {
+      setUserProfile(data);
+    }
+    return { data, error };
   };
 
   const loginWithGoogle = async () => {
@@ -123,7 +145,8 @@ export const AuthProvider = ({ children }) => {
     loginWithGoogle,
     loginWithEmail,
     signupWithEmail,
-    logout
+    logout,
+    updateProfileStats
   };
 
   return (
