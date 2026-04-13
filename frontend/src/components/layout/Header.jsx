@@ -12,14 +12,13 @@ const Header = () => {
     { name: 'Arena', path: '/arena' },
     { name: 'Social', path: '/social' },
     { name: 'Leaderboard', path: '/leaderboard' },
-    { name: 'Profile', path: '/profile' },
   ];
 
   return (
     <header className="bg-[#131314] flex justify-between items-center w-full px-4 md:px-6 py-4 max-w-full sticky top-0 z-50 border-b border-[#3a3a3c]">
       <div className="flex items-center gap-4 md:gap-8">
         {/* Mobile Menu Toggle */}
-        <button 
+        <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
           className="md:hidden text-white p-1"
         >
@@ -27,19 +26,18 @@ const Header = () => {
         </button>
 
         <NavLink to="/" className="flex items-center">
-          <img src="/logo.png" alt="Comp Wordle" className="h-7 md:h-10 w-auto object-contain" />
+          <img src="/logo.png" alt="Comp Wordle" className="h-9 md:h-10 w-auto object-contain" />
         </NavLink>
-        
+
         <nav className="hidden md:flex items-center space-x-6">
           {navLinks.map((link) => (
             <NavLink
               key={link.path}
               to={link.path}
               className={({ isActive }) =>
-                `text-[10px] uppercase tracking-[0.2em] font-bold transition-colors duration-200 ${
-                  isActive
-                    ? 'text-primary'
-                    : 'text-slate-500 hover:text-white'
+                `text-sm font-medium uppercase tracking-wider transition-colors duration-200 ${isActive
+                  ? 'text-primary'
+                  : 'text-slate-500 hover:text-white'
                 }`
               }
             >
@@ -53,22 +51,22 @@ const Header = () => {
         <button className="hover:bg-[#1c1c1d] transition-all p-2 border border-transparent hover:border-[#3a3a3c]">
           <span className="material-symbols-outlined text-[#818384] text-xl">settings</span>
         </button>
-        
+
         <div className="hidden md:block w-[1px] h-6 bg-[#3a3a3c] mx-2"></div>
 
         {userProfile ? (
           <NavLink to="/profile" className="hover:bg-[#1c1c1d] border border-transparent hover:border-[#3a3a3c] p-1 flex items-center gap-2 rounded-xl">
-            <span className="text-[10px] uppercase font-bold text-white hidden lg:block">@{userProfile.username}</span>
-            <img 
-              src={userProfile.avatar_url || `https://ui-avatars.com/api/?name=${userProfile.username}&background=75bb6e&color=131314`} 
-              alt="Profile" 
-              className="w-8 h-8 object-cover border border-[#3a3a3c] rounded-xl" 
+            <span className="text-sm font-medium uppercase tracking-wider text-white hidden lg:block">@{userProfile.username}</span>
+            <img
+              src={userProfile.avatar_url || `https://ui-avatars.com/api/?name=${userProfile.username}&background=75bb6e&color=131314`}
+              alt="Profile"
+              className="w-10 h-10 md:w-8 md:h-8 object-cover border border-[#3a3a3c] rounded-xl"
             />
           </NavLink>
         ) : (
-          <button 
+          <button
             onClick={loginWithGoogle}
-            className="bg-primary text-[#131314] px-4 py-1.5 font-bold text-[10px] uppercase tracking-widest hover:brightness-110 rounded-xl"
+            className="bg-primary text-[#131314] px-4 py-2 font-medium text-sm uppercase tracking-wider hover:brightness-110 rounded-xl"
           >
             LOG IN
           </button>
@@ -85,8 +83,7 @@ const Header = () => {
                 to={link.path}
                 onClick={() => setIsMenuOpen(false)}
                 className={({ isActive }) =>
-                  `text-xs uppercase tracking-[0.3em] font-black py-4 border-b border-[#3a3a3c] ${
-                    isActive ? 'text-primary' : 'text-slate-400'
+                  `text-xs uppercase tracking-[0.3em] font-black py-4 border-b border-[#3a3a3c] ${isActive ? 'text-primary' : 'text-slate-400'
                   }`
                 }
               >
@@ -94,8 +91,8 @@ const Header = () => {
               </NavLink>
             ))}
             {userProfile && (
-              <NavLink 
-                to="/profile" 
+              <NavLink
+                to="/profile"
                 onClick={() => setIsMenuOpen(false)}
                 className="text-xs uppercase tracking-[0.3em] font-black py-4 border-b border-[#3a3a3c] text-white flex items-center gap-3"
               >

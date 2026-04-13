@@ -263,15 +263,15 @@ const SinglePlayer = () => {
           {/* Stats Column - Moves to bottom on smaller screens */}
           <div className="order-2 xl:order-1 xl:col-span-3 space-y-4 md:space-y-6">
             {/* Mode Selector */}
-            <div className="bg-[#1c1c1d] p-1 border border-[#3a3a3c] rounded-xl flex">
-              <button 
+            <div className="hidden xl:block bg-[#1c1c1d]  border border-[#3a3a3c] rounded-xl flex">
+              <button
                 onClick={() => gameState === 'playing' && !hasStarted && setIsRated(true)}
                 className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-lg transition-all ${isRated ? 'bg-primary text-[#131314]' : 'text-[#818384] hover:text-white'}`}
                 disabled={hasStarted}
               >
                 Rated
               </button>
-              <button 
+              <button
                 onClick={() => gameState === 'playing' && !hasStarted && setIsRated(false)}
                 className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-lg transition-all ${!isRated ? 'bg-[#3a3a3c] text-white' : 'text-[#818384] hover:text-white'}`}
                 disabled={hasStarted}
@@ -333,28 +333,47 @@ const SinglePlayer = () => {
             </div>
           </div>
 
-          {/* Game Board Column */}
-          <div className="order-1 xl:order-2 xl:col-span-9 flex flex-col items-center justify-start xl:justify-center py-2 md:py-4 gap-4 md:gap-12 w-full">
-            <div className="flex flex-col items-center w-full">
-              <div className="grid grid-rows-6 gap-1 md:gap-1.5 mb-4 md:mb-8">
+          {/* Game Board Column - Fills viewport on mobile, centered on PC */}
+          <div className="order-1 xl:order-2 xl:col-span-9 flex flex-col items-center justify-between xl:justify-center py-6 md:py-4 w-full xl:min-h-0 min-h-[calc(100vh-140px)]">
+            {/* Mobile Mode Selector */}
+            <div className="xl:hidden w-full max-w-xl px-1 mb-6">
+              <div className="bg-[#1c1c1d] p-1 border border-[#3a3a3c] rounded-xl flex">
+                <button
+                  onClick={() => gameState === 'playing' && !hasStarted && setIsRated(true)}
+                  className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-lg transition-all ${isRated ? 'bg-primary text-[#131314]' : 'text-[#818384] hover:text-white'}`}
+                  disabled={hasStarted}
+                >
+                  Rated
+                </button>
+                <button
+                  onClick={() => gameState === 'playing' && !hasStarted && setIsRated(false)}
+                  className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-lg transition-all ${!isRated ? 'bg-[#3a3a3c] text-white' : 'text-[#818384] hover:text-white'}`}
+                  disabled={hasStarted}
+                >
+                  Unrated
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-col items-center w-full flex-1 justify-center">
+              <div className="grid grid-rows-6 gap-1.5 md:gap-1.5 mb-8 md:mb-8">
                 {board.map((row, rIdx) => (
-                  <div key={rIdx} className={`grid grid-cols-5 gap-1 md:gap-1.5 ${shakeRowIndex === rIdx ? 'row-anim-shake' : ''}`}>
+                  <div key={rIdx} className={`grid grid-cols-5 gap-1.5 md:gap-1.5 ${shakeRowIndex === rIdx ? 'row-anim-shake' : ''}`}>
                     {row.map((tile, tIdx) => (
-                      <div 
-                        key={tIdx} 
-                        className={`w-14 h-14 sm:w-16 sm:h-16 relative tile-flip ${tile.state !== LetterState.INITIAL ? 'tile-revealed' : ''} ${tile.letter && tile.state === LetterState.INITIAL ? 'tile-anim-zoom' : ''}`}
+                      <div
+                        key={tIdx}
+                        className={`w-16 h-16 sm:w-16 sm:h-16 xl:w-14 xl:sm:w-16 relative tile-flip ${tile.state !== LetterState.INITIAL ? 'tile-revealed' : ''} ${tile.letter && tile.state === LetterState.INITIAL ? 'tile-anim-zoom' : ''}`}
                       >
-                        <div 
+                        <div
                           className={`tile-flip-inner ${success && rIdx === currentRowIndex ? 'tile-anim-jump' : ''}`}
-                          style={{ 
+                          style={{
                             transitionDelay: `${tIdx * 300}ms`,
                             animationDelay: `${tIdx * 100}ms`
                           }}
                         >
-                          <div className={`tile-front w-full h-full rounded-lg text-2xl md:text-3xl font-bold border-2 ${tile.letter ? 'border-[#818384]' : 'border-[#3a3a3c]'} text-white`}>
+                          <div className={`tile-front w-full h-full rounded-lg text-3xl xl:text-2xl xl:md:text-3xl font-bold border-2 ${tile.letter ? 'border-[#818384]' : 'border-[#3a3a3c]'} text-white flex items-center justify-center`}>
                             {tile.letter.toUpperCase()}
                           </div>
-                          <div className={`tile-back w-full h-full rounded-lg text-2xl md:text-3xl font-bold text-[#131314] ${getTileStyle(tile.state)}`}>
+                          <div className={`tile-back w-full h-full rounded-lg text-3xl xl:text-2xl xl:md:text-3xl font-bold text-[#131314] ${getTileStyle(tile.state)} flex items-center justify-center`}>
                             {tile.letter.toUpperCase()}
                           </div>
                         </div>
@@ -365,23 +384,24 @@ const SinglePlayer = () => {
               </div>
 
               {/* Responsive Keyboard */}
-              <div className="w-full max-w-xl flex flex-col gap-1.5 md:gap-2 px-1">
+              {/* Virtual Keyboard */}
+              <div className="w-full max-w-xl flex flex-col gap-1.5 md:gap-2 px-1 mb-4">
                 <div className="flex justify-center gap-1 md:gap-1.5">
-                  {['Q','W','E','R','T','Y','U','I','O','P'].map(k => (
-                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-12 md:h-14 rounded-md font-black text-[10px] md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
+                  {['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'].map(k => (
+                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-14 md:h-14 rounded-md font-black text-xs md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
                   ))}
                 </div>
-                <div className="flex justify-center gap-1 md:gap-1.5 px-4 md:px-8">
-                  {['A','S','D','F','G','H','J','K','L'].map(k => (
-                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-12 md:h-14 rounded-md font-black text-[10px] md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
+                <div className="flex justify-center gap-1 md:gap-1.5 px-3 md:px-8">
+                  {['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'].map(k => (
+                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-14 md:h-14 rounded-md font-black text-xs md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
                   ))}
                 </div>
                 <div className="flex justify-center gap-1 md:gap-1.5">
-                  <button onClick={() => onKey('Enter')} className="px-2 md:px-4 h-12 md:h-14 rounded-md bg-[#818384] text-white font-black text-[9px] md:text-xs active:opacity-75">ENTER</button>
-                  {['Z','X','C','V','B','N','M'].map(k => (
-                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-12 md:h-14 rounded-md font-black text-[10px] md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
+                  <button onClick={() => onKey('Enter')} className="px-2 md:px-4 h-14 md:h-14 rounded-md bg-[#818384] text-white font-black text-[9px] md:text-xs active:opacity-75">ENTER</button>
+                  {['Z', 'X', 'C', 'V', 'B', 'N', 'M'].map(k => (
+                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-14 md:h-14 rounded-md font-black text-xs md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
                   ))}
-                  <button onClick={() => onKey('Backspace')} className="px-2 md:px-4 h-12 md:h-14 rounded-md bg-[#818384] text-white flex items-center justify-center active:opacity-75">
+                  <button onClick={() => onKey('Backspace')} className="px-2 md:px-4 h-14 md:h-14 rounded-md bg-[#818384] text-white flex items-center justify-center active:opacity-75">
                     <span className="material-symbols-outlined text-lg md:text-xl">backspace</span>
                   </button>
                 </div>
@@ -390,7 +410,7 @@ const SinglePlayer = () => {
 
             <div className="w-full flex items-center justify-center mt-4">
               {gameState !== 'playing' && (
-                <button 
+                <button
                   onClick={resetGame}
                   className="w-full md:w-auto px-12 py-4 bg-primary text-[#131314] font-black text-xs hover:brightness-110 transition-all uppercase tracking-[0.2em] rounded-xl"
                 >

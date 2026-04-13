@@ -15,10 +15,10 @@ const Dashboard = () => {
   return (
     <main className="max-w-[1440px] mx-auto p-4 md:p-8 space-y-6 pb-24 md:pb-8 bg-[#131314]">
       {/* Profile/Hero Section */}
-      <section className="bg-[#1c1c1d] p-8 border border-[#3a3a3c]">
+      <section className="bg-[#1c1c1d] p-6 md:p-8 border border-[#3a3a3c] rounded-xl">
         <div className="relative z-10">
           <span className="text-[#818384] font-bold text-[10px] uppercase tracking-[0.3em] mb-4 block">Combatant Profile</span>
-          <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter mb-8">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter mb-8">
             Welcome, <span className="text-primary">@{userProfile?.username || 'Player'}</span>
           </h1>
 
@@ -35,7 +35,7 @@ const Dashboard = () => {
       </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-        <a href="/arena" className="bg-[#1c1c1d] p-8 border border-[#3a3a3c] rounded-xl group hover:border-primary/50 transition-all cursor-pointer block">
+        <a href="/arena" className="bg-[#1c1c1d] p-6 md:p-8 border border-[#3a3a3c] rounded-xl group hover:border-primary/50 transition-all cursor-pointer block">
           <div className="flex justify-between items-start mb-6">
             <span className="material-symbols-outlined text-primary text-4xl">style</span>
             <span className="material-symbols-outlined text-[#3a3a3c] group-hover:text-primary transition-colors">arrow_forward</span>
@@ -46,7 +46,7 @@ const Dashboard = () => {
           </p>
         </a>
 
-        <a href="/single-player" className="bg-[#1c1c1d] p-8 border border-[#3a3a3c] rounded-xl group hover:border-primary/50 transition-all cursor-pointer block">
+        <a href="/single-player" className="bg-[#1c1c1d] p-6 md:p-8 border border-[#3a3a3c] rounded-xl group hover:border-primary/50 transition-all cursor-pointer block">
           <div className="flex justify-between items-start mb-6">
             <span className="material-symbols-outlined text-secondary text-4xl">fitness_center</span>
             <span className="material-symbols-outlined text-[#3a3a3c] group-hover:text-secondary transition-colors">arrow_forward</span>
@@ -57,7 +57,7 @@ const Dashboard = () => {
           </p>
         </a>
 
-        <a href="/leaderboard" className="bg-[#1c1c1d] p-8 border border-[#3a3a3c] rounded-xl group hover:border-primary/50 transition-all cursor-pointer block">
+        <a href="/leaderboard" className="bg-[#1c1c1d] p-6 md:p-8 border border-[#3a3a3c] rounded-xl group hover:border-primary/50 transition-all cursor-pointer block">
           <div className="flex justify-between items-start mb-6">
             <span className="material-symbols-outlined text-white/50 text-4xl">military_tech</span>
             <span className="material-symbols-outlined text-[#3a3a3c] group-hover:text-white transition-colors">arrow_forward</span>
