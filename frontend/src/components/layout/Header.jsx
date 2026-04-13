@@ -57,18 +57,18 @@ const Header = () => {
         <div className="hidden md:block w-[1px] h-6 bg-[#3a3a3c] mx-2"></div>
 
         {userProfile ? (
-          <NavLink to="/profile" className="hover:bg-[#1c1c1d] border border-transparent hover:border-[#3a3a3c] p-1 flex items-center gap-2">
+          <NavLink to="/profile" className="hover:bg-[#1c1c1d] border border-transparent hover:border-[#3a3a3c] p-1 flex items-center gap-2 rounded-xl">
             <span className="text-[10px] uppercase font-bold text-white hidden lg:block">@{userProfile.username}</span>
             <img 
               src={userProfile.avatar_url || `https://ui-avatars.com/api/?name=${userProfile.username}&background=75bb6e&color=131314`} 
               alt="Profile" 
-              className="w-8 h-8 object-cover border border-[#3a3a3c]" 
+              className="w-8 h-8 object-cover border border-[#3a3a3c] rounded-xl" 
             />
           </NavLink>
         ) : (
           <button 
             onClick={loginWithGoogle}
-            className="bg-primary text-[#131314] px-4 py-1.5 font-bold text-[10px] uppercase tracking-widest hover:brightness-110"
+            className="bg-primary text-[#131314] px-4 py-1.5 font-bold text-[10px] uppercase tracking-widest hover:brightness-110 rounded-xl"
           >
             LOG IN
           </button>

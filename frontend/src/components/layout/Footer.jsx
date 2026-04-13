@@ -16,7 +16,7 @@ const Footer = () => {
           key={item.path}
           to={item.path}
           className={({ isActive }) => 
-            `flex-1 flex flex-col items-center justify-center border-t-2 transition-all active:scale-95 ${
+            `flex-1 flex flex-col items-center justify-center border-t-2 rounded-xl transition-all active:scale-95 ${
               isActive ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-slate-600'
             }`
           }

@@ -305,20 +305,20 @@ const SinglePlayer = () => {
               <div className="w-full max-w-xl flex flex-col gap-1.5 md:gap-2 px-1">
                 <div className="flex justify-center gap-1 md:gap-1.5">
                   {['Q','W','E','R','T','Y','U','I','O','P'].map(k => (
-                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-12 md:h-14 font-black text-[10px] md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
+                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-12 md:h-14 rounded-md font-black text-[10px] md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
                   ))}
                 </div>
                 <div className="flex justify-center gap-1 md:gap-1.5 px-4 md:px-8">
                   {['A','S','D','F','G','H','J','K','L'].map(k => (
-                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-12 md:h-14 font-black text-[10px] md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
+                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-12 md:h-14 rounded-md font-black text-[10px] md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
                   ))}
                 </div>
                 <div className="flex justify-center gap-1 md:gap-1.5">
-                  <button onClick={() => onKey('Enter')} className="px-2 md:px-4 h-12 md:h-14 bg-[#818384] text-white font-black text-[9px] md:text-xs active:opacity-75">ENTER</button>
+                  <button onClick={() => onKey('Enter')} className="px-2 md:px-4 h-12 md:h-14 rounded-md bg-[#818384] text-white font-black text-[9px] md:text-xs active:opacity-75">ENTER</button>
                   {['Z','X','C','V','B','N','M'].map(k => (
-                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-12 md:h-14 font-black text-[10px] md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
+                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-12 md:h-14 rounded-md font-black text-[10px] md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
                   ))}
-                  <button onClick={() => onKey('Backspace')} className="px-2 md:px-4 h-12 md:h-14 bg-[#818384] text-white flex items-center justify-center active:opacity-75">
+                  <button onClick={() => onKey('Backspace')} className="px-2 md:px-4 h-12 md:h-14 rounded-md bg-[#818384] text-white flex items-center justify-center active:opacity-75">
                     <span className="material-symbols-outlined text-lg md:text-xl">backspace</span>
                   </button>
                 </div>
@@ -329,7 +329,7 @@ const SinglePlayer = () => {
               {gameState !== 'playing' && (
                 <button 
                   onClick={resetGame}
-                  className="w-full md:w-auto px-12 py-4 bg-primary text-[#131314] font-black text-xs hover:brightness-110 transition-all uppercase tracking-[0.2em]"
+                  className="w-full md:w-auto px-12 py-4 bg-primary text-[#131314] font-black text-xs hover:brightness-110 transition-all uppercase tracking-[0.2em] rounded-xl"
                 >
                   New Mission
                 </button>
