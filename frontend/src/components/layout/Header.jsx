@@ -26,8 +26,8 @@ const Header = () => {
           <span className="material-symbols-outlined">{isMenuOpen ? 'close' : 'menu'}</span>
         </button>
 
-        <NavLink to="/" className="text-base md:text-xl font-black tracking-tighter text-primary font-headline">
-          COMP-W
+        <NavLink to="/" className="flex items-center">
+          <img src="/logo.png" alt="Comp Wordle" className="h-7 md:h-10 w-auto object-contain" />
         </NavLink>
         
         <nav className="hidden md:flex items-center space-x-6">

@@ -12,7 +12,7 @@
 
   /* Stealth Analytical Palette */
   --primary: #75bb6e;
-  --secondary: #d7c88c;
+  --secondary: #f9d957;
   --on-primary: #131314;
   --on-secondary: #131314;
   
@@ -41,7 +41,6 @@ h1, h2, h3, .font-headline, .headline-font {
 
 /* Authentic Minimalist Component Overrides */
 .card, button, input {
-  border-radius: 0 !important;
   box-shadow: none !important;
   border: 1px solid var(--outline);
 }

@@ -5,7 +5,7 @@ const Dashboard = () => {
   const { userProfile } = useAuth();
 
   const mainStats = [
-    { label: 'Single ELO', value: userProfile?.single_player_elo || 1000, color: 'text-primary' },
+    { label: 'Single RP', value: userProfile?.single_player_elo || 0, color: 'text-primary' },
     { label: 'Win Rate', value: `${(userProfile?.win_rate || 0).toFixed(1)}%`, color: 'text-white' },
     { label: 'Current Tier', value: userProfile?.tier || 'Bronze', color: 'text-secondary' },
     { label: 'Daily Streak', value: userProfile?.current_daily_streak || 0, color: 'text-primary' },

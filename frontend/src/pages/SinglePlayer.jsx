@@ -20,6 +20,8 @@ const SinglePlayer = () => {
   const [gameState, setGameState] = useState('playing');
   const [shakeRowIndex, setShakeRowIndex] = useState(-1);
   const [success, setSuccess] = useState(false);
+  const [isRated, setIsRated] = useState(true);
+  const [ratingChange, setRatingChange] = useState(null);
 
   // Timer logic
   const [hasStarted, setHasStarted] = useState(false);
@@ -62,6 +64,7 @@ const SinglePlayer = () => {
     setStartTime(null);
     setShakeRowIndex(-1);
     setSuccess(false);
+    setRatingChange(null);
   }, []);
 
   const saveStats = async (finalState, finalRowIndex, solveTime) => {
@@ -80,6 +83,29 @@ const SinglePlayer = () => {
     if (isWin) {
       newAvgTime = Math.floor(((userProfile.avg_solve_time || 0) * (newWins - 1) + solveTime) / newWins);
     }
+
+    let nextRating = userProfile.single_player_elo || 0;
+    let change = 0;
+
+    if (isRated) {
+      const currentRP = userProfile.single_player_elo || 0;
+      if (isWin) {
+        // Higher K-factor (50) for lower ranks to help climbing, lower (25) for high ranks
+        const K = currentRP < 1000 ? 50 : 25;
+        // Accuracy multiplier based on guess count
+        const multipliers = [2.0, 1.5, 1.2, 1.0, 0.8, 0.6];
+        const mult = multipliers[finalRowIndex] || 0.5;
+        change = Math.max(5, Math.floor(K * mult));
+      } else {
+        // Loss scales with rank: -15 at low ranks, increases as you climb
+        const baseLoss = 15;
+        const rankPenalty = Math.floor(currentRP / 200);
+        change = -(baseLoss + rankPenalty);
+      }
+      nextRating = Math.max(0, currentRP + change);
+      setRatingChange(change);
+    }
+
     await updateProfileStats({
       total_matches: newTotalMatches,
       wins: newWins,
@@ -87,7 +113,8 @@ const SinglePlayer = () => {
       current_win_streak: newWinStreak,
       max_win_streak: newMaxWinStreak,
       guess_distribution: newDist,
-      avg_solve_time: newAvgTime
+      avg_solve_time: newAvgTime,
+      single_player_elo: nextRating
     });
   };
 
@@ -235,33 +262,69 @@ const SinglePlayer = () => {
         <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-8 relative">
           {/* Stats Column - Moves to bottom on smaller screens */}
           <div className="order-2 xl:order-1 xl:col-span-3 space-y-4 md:space-y-6">
-            <div className="bg-[#1c1d1c] p-4 md:p-6 border-l-4 border-primary border border-white/5">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Win Streak</p>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl md:text-4xl font-black text-white">{currentStreak}</span>
-                <span className="text-primary text-[10px] font-bold uppercase tracking-widest">BEST: {maxStreak}</span>
+            {/* Mode Selector */}
+            <div className="bg-[#1c1c1d] p-1 border border-[#3a3a3c] rounded-xl flex">
+              <button 
+                onClick={() => gameState === 'playing' && !hasStarted && setIsRated(true)}
+                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-lg transition-all ${isRated ? 'bg-primary text-[#131314]' : 'text-[#818384] hover:text-white'}`}
+                disabled={hasStarted}
+              >
+                Rated
+              </button>
+              <button 
+                onClick={() => gameState === 'playing' && !hasStarted && setIsRated(false)}
+                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-lg transition-all ${!isRated ? 'bg-[#3a3a3c] text-white' : 'text-[#818384] hover:text-white'}`}
+                disabled={hasStarted}
+              >
+                Unrated
+              </button>
+            </div>
+
+            <div className={`bg-[#1c1c1d] p-4 md:p-6 border border-[#3a3a3c] rounded-xl transition-all ${isRated ? 'border-l-4 border-l-primary' : ''}`}>
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#818384] mb-1">Single Player RP</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-3xl font-black text-white">{userProfile?.single_player_elo || 0}</span>
+                    {ratingChange !== null && (
+                      <span className={`text-[10px] font-bold ${ratingChange >= 0 ? 'text-primary' : 'text-red-500'}`}>
+                        {ratingChange >= 0 ? `+${ratingChange}` : ratingChange}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="pt-4 border-t border-[#3a3a3c] flex justify-between items-center">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#818384]">Win Streak</p>
+                  <span className="text-xl font-black text-white">{currentStreak}</span>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#818384]">Best</p>
+                  <span className="text-xl font-black text-white/40">{maxStreak}</span>
+                </div>
               </div>
             </div>
 
-            <div className="bg-[#1c1d1c] p-4 md:p-6 border border-white/5 grid grid-cols-2">
+            <div className="bg-[#1c1c1d] p-4 md:p-6 border border-[#3a3a3c] rounded-xl grid grid-cols-2">
               <div className="text-center">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Today</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#818384] mb-1">Today</p>
                 <div className="text-xl md:text-2xl font-black text-white tabular-nums">{formatTime(timer)}</div>
               </div>
-              <div className="text-center border-l border-white/10">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Avg</p>
+              <div className="text-center border-l border-[#3a3a3c]">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#818384] mb-1">Avg</p>
                 <div className="text-xl md:text-2xl font-black text-primary tabular-nums">{formatTime(avgTime)}</div>
               </div>
             </div>
 
-            <div className="bg-[#1c1d1c] p-4 md:p-6 border border-white/5 hidden md:block">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">Guess Distribution</p>
+            <div className="bg-[#1c1c1d] p-4 md:p-6 border border-[#3a3a3c] rounded-xl hidden md:block">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#818384] mb-4">Guess Distribution</p>
               <div className="space-y-2">
                 {Object.entries(distribution).map(([guess, count]) => (
                   <div key={guess} className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-slate-500 w-4">{guess}</span>
-                    <div className="flex-1 h-5 bg-[#121213] relative overflow-hidden">
-                      <div className="absolute inset-y-0 left-0 bg-primary/40" style={{ width: `${totalWins > 0 ? (count / totalWins) * 100 : 0}%` }}></div>
+                    <span className="text-[10px] font-bold text-[#818384] w-4">{guess}</span>
+                    <div className="flex-1 h-5 bg-[#131314] relative overflow-hidden rounded-md">
+                      <div className="absolute inset-y-0 left-0 bg-white/10 rounded-md" style={{ width: `${totalWins > 0 ? (count / totalWins) * 100 : 0}%` }}></div>
                       <span className="absolute right-2 text-[10px] font-bold text-white leading-5">{count}</span>
                     </div>
                   </div>
@@ -288,10 +351,10 @@ const SinglePlayer = () => {
                             animationDelay: `${tIdx * 100}ms`
                           }}
                         >
-                          <div className={`tile-front w-full h-full text-2xl md:text-3xl font-bold border-2 ${tile.letter ? 'border-[#818384]' : 'border-[#3a3a3c]'} text-white`}>
+                          <div className={`tile-front w-full h-full rounded-lg text-2xl md:text-3xl font-bold border-2 ${tile.letter ? 'border-[#818384]' : 'border-[#3a3a3c]'} text-white`}>
                             {tile.letter.toUpperCase()}
                           </div>
-                          <div className={`tile-back w-full h-full text-2xl md:text-3xl font-bold text-[#131314] ${getTileStyle(tile.state)}`}>
+                          <div className={`tile-back w-full h-full rounded-lg text-2xl md:text-3xl font-bold text-[#131314] ${getTileStyle(tile.state)}`}>
                             {tile.letter.toUpperCase()}
                           </div>
                         </div>
