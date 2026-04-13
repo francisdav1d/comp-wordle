@@ -4,14 +4,15 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
 import Landing from './pages/Landing';
+import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import GameArena from './pages/GameArena';
 import SinglePlayer from './pages/SinglePlayer';
+import ArenaLobby from './pages/ArenaLobby';
+import PrivateLobby from './pages/PrivateLobby';
+import GameArena from './pages/GameArena';
+import Profile from './pages/Profile';
 import Social from './pages/Social';
 import Leaderboard from './pages/Leaderboard';
-import Profile from './pages/Profile';
-import Login from './pages/Login';
-import ArenaLobby from './pages/ArenaLobby';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -41,6 +42,7 @@ function App() {
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/single-player" element={<ProtectedRoute><SinglePlayer /></ProtectedRoute>} />
               <Route path="/arena" element={<ProtectedRoute><ArenaLobby /></ProtectedRoute>} />
+              <Route path="/private-lobby/:lobbyId" element={<ProtectedRoute><PrivateLobby /></ProtectedRoute>} />
               <Route path="/game-room/:gameId" element={<ProtectedRoute><GameArena /></ProtectedRoute>} />
               <Route path="/social" element={<ProtectedRoute><Social /></ProtectedRoute>} />
               <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />

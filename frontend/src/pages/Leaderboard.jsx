@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 
 const Leaderboard = () => {
-  const [tab, setTab] = useState('global');
+  const [category, setCategory] = useState('global');
+  const [gameMode, setGameMode] = useState('singleplayer');
 
   const rankings = [
     { rank: '04', name: 'AlphaSolver', tier: 'Diamond Division', elo: '2,650', avg: '3.4', wr: '89.2%', trend: 2, trendDir: 'up', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB7gfxwtlgyFAyigDoisCKlsfSS-YKnvw9p7e4pEaHE_7VATKhQ0Mzq5IXZtT1383HovQzx3WNUTpp1olkYSNlPtfAzMdFuIrZ8lGpNpwZwHhx9HUPLoxcB3XS8Y_x3Y9CKho1RpFc8Oqq7k0LLI0OEBbwCdN-2pYacm9nAqvsIVNlGEHUy41FGLKTyyGpiSn1OgO5B7k3YEuQBHXQjNMR0AewNJnmRgQmendJ9OV2OJuQvLna2HJn9uPnK_06rxw1Cj1Fks2BuI-U' },
     { rank: '05', name: 'VowelHunter', tier: 'Elite Tier', elo: '2,510', avg: '3.5', wr: '88.7%', trend: 1, trendDir: 'down', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB_7NXX_7f8haW2dg0zmxPQx_Xp93IajAln43RfZ9y1W8NmC_OXrX-gFFdFFhrHXRoNgVXY-CDhHz3ysItvw_moV3alRq4_43m6OlI3H81_q2yraDLkY1gmMknXMaltU0jAZ9eYy2iIetU_eoDLsYnKZ-tASkcS8mbxgpdqtiRzt3fspt3pDo3DXtxZlEdSNS6C74RStmI5OeNT_G9p3UkWcJlrtNwmPXgotIqVn8lmsIZm6pLNivd8QiokMMedu5bAVQU1GUEn34U' },
     { rank: '06', name: 'CrypticMind', tier: 'Platinum IV', elo: '2,485', avg: '3.7', wr: '86.4%', trend: 0, trendDir: 'flat', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAhJo-k7_8NdTTORy6xmDqO8XTKpOmcGbj07S4-OjwBQ0mKdMZub9OV5tUdDfnv89oB6x18oq7HTsTEgc3yIad5rP5PzV0zGoDG4O_W9qgGiRBf-ufNQPwp2rR92CGd12FGeM4dDQfMHaG5dGlo-KeqEwQstT3bhhhveq_slSlBr7VUuvSiBwNs9uMuSmiEekDdblIY-d-ldZBGjgRoZ8TvYqf1tPTUmptHA8-GsyDC6lB_XzBvMXV7-ruJhZtBCJkkJW5DeGjnFoM' },
     { rank: '07', name: 'ZeroGuess', tier: 'Platinum III', elo: '2,420', avg: '3.8', wr: '85.0%', trend: 4, trendDir: 'up', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCYFxhcdBKqYV5eqXkbm7CzEJKJAVFX1i_0M1VaSyPzqEddW4UAd02iZURKEgVkL4i2WbVL2x57uh2j556GdAi-MHwweuid4YY3K4QVJR2t2U1Zp3HLx7NFpMkCBadKePhAjIHCeJNCWmXJdQhMhzbiBMtJNYES0KxRm_DYmm82hEc_u6UmAFTmggQgMOeMvF1wWVh6WwALXfCW5LmAO3UwGtuR4izGmPGCSVBAZmBUu6ScDuSWhrYjJBJZsayonEyJK9-X-xgYhmU' },
+    { rank: '08', name: 'WordNinja', tier: 'Gold I', elo: '2,310', avg: '4.1', wr: '79.5%', trend: 2, trendDir: 'up', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB7gfxwtlgyFAyigDoisCKlsfSS-YKnvw9p7e4pEaHE_7VATKhQ0Mzq5IXZtT1383HovQzx3WNUTpp1olkYSNlPtfAzMdFuIrZ8lGpNpwZwHhx9HUPLoxcB3XS8Y_x3Y9CKho1RpFc8Oqq7k0LLI0OEBbwCdN-2pYacm9nAqvsIVNlGEHUy41FGLKTyyGpiSn1OgO5B7k3YEuQBHXQjNMR0AewNJnmRgQmendJ9OV2OJuQvLna2HJn9uPnK_06rxw1Cj1Fks2BuI-U' },
+    { rank: '09', name: 'GridMaster', tier: 'Gold II', elo: '2,250', avg: '4.2', wr: '77.0%', trend: 1, trendDir: 'down', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB_7NXX_7f8haW2dg0zmxPQx_Xp93IajAln43RfZ9y1W8NmC_OXrX-gFFdFFhrHXRoNgVXY-CDhHz3ysItvw_moV3alRq4_43m6OlI3H81_q2yraDLkY1gmMknXMaltU0jAZ9eYy2iIetU_eoDLsYnKZ-tASkcS8mbxgpdqtiRzt3fspt3pDo3DXtxZlEdSNS6C74RStmI5OeNT_G9p3UkWcJlrtNwmPXgotIqVn8lmsIZm6pLNivd8QiokMMedu5bAVQU1GUEn34U' },
+    { rank: '10', name: 'LetterMage', tier: 'Gold III', elo: '2,190', avg: '4.4', wr: '74.2%', trend: 0, trendDir: 'flat', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAhJo-k7_8NdTTORy6xmDqO8XTKpOmcGbj07S4-OjwBQ0mKdMZub9OV5tUdDfnv89oB6x18oq7HTsTEgc3yIad5rP5PzV0zGoDG4O_W9qgGiRBf-ufNQPwp2rR92CGd12FGeM4dDQfMHaG5dGlo-KeqEwQstT3bhhhveq_slSlBr7VUuvSiBwNs9uMuSmiEekDdblIY-d-ldZBGjgRoZ8TvYqf1tPTUmptHA8-GsyDC6lB_XzBvMXV7-ruJhZtBCJkkJW5DeGjnFoM' },
   ];
 
   return (
@@ -18,9 +22,15 @@ const Leaderboard = () => {
           <h1 className="font-headline text-4xl md:text-5xl font-extrabold tracking-tight text-on-surface mb-2">Arena Rankings</h1>
           <p className="text-on-surface-variant font-medium">Global lexical dominance tracking. Resetting in <span className="text-secondary">4d 12h</span></p>
         </div>
-        <div className="bg-surface-container-low p-1.5 rounded-xl flex items-center shadow-inner">
-          <button onClick={() => setTab('global')} className={`px-6 py-2 rounded-lg font-bold text-sm tracking-wide transition-all ${tab === 'global' ? 'bg-surface-container-highest text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>GLOBAL</button>
-          <button onClick={() => setTab('friends')} className={`px-6 py-2 rounded-lg font-bold text-sm tracking-wide transition-all ${tab === 'friends' ? 'bg-surface-container-highest text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>FRIENDS</button>
+        <div className="flex flex-col items-start md:items-end gap-3 w-full md:w-auto mt-4 md:mt-0">
+          <div className="bg-surface-container-low p-1.5 rounded-xl grid grid-cols-2 gap-1 shadow-inner w-full md:w-[340px]">
+            <button onClick={() => setCategory('global')} className={`w-full py-2 rounded-lg font-bold text-sm tracking-wide transition-all ${category === 'global' ? 'bg-surface-container-highest text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>GLOBAL</button>
+            <button onClick={() => setCategory('friends')} className={`w-full py-2 rounded-lg font-bold text-sm tracking-wide transition-all ${category === 'friends' ? 'bg-surface-container-highest text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>FRIENDS</button>
+          </div>
+          <div className="bg-surface-container-low p-1.5 rounded-xl grid grid-cols-2 gap-1 shadow-inner w-full md:w-[340px]">
+            <button onClick={() => setGameMode('singleplayer')} className={`w-full py-2 rounded-lg font-bold text-xs tracking-wide transition-all ${gameMode === 'singleplayer' ? 'bg-surface-container-highest text-secondary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>SINGLE PLAYER</button>
+            <button onClick={() => setGameMode('multiplayer')} className={`w-full py-2 rounded-lg font-bold text-xs tracking-wide transition-all ${gameMode === 'multiplayer' ? 'bg-surface-container-highest text-secondary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>MULTIPLAYER</button>
+          </div>
         </div>
       </section>
 

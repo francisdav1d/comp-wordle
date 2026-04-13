@@ -9,48 +9,84 @@ const ArenaLobby = () => {
   const [onlineCount, setOnlineCount] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
   const [searchMode, setSearchMode] = useState(null);
+  const [joinCode, setJoinCode] = useState('');
 
   useEffect(() => {
-    setOnlineCount(152);
+    setOnlineCount(158);
   }, []);
+
+  const handleCreatePrivate = async () => {
+    if (!user) return;
+    try {
+        console.log('Initiating Lobby Creation...');
+        const { data, error } = await supabase.rpc('create_private_lobby', { v_host_id: user.id });
+        
+        if (error) {
+            console.error('RPC Error:', error);
+            alert(`Lobby Error: ${error.message}`);
+            return;
+        }
+
+        // Robust check for the returned game_id
+        const gameId = data?.[0]?.game_id || data?.[0]?.v_new_id;
+        
+        if (gameId) {
+            console.log('Lobby Created! Redirecting to:', gameId);
+            navigate(`/private-lobby/${gameId}`);
+        } else {
+            console.error('No Game ID returned from RPC:', data);
+            alert('Failed to retrieve Lobby ID from server.');
+        }
+    } catch (err) {
+        console.error('Client Side Error:', err);
+    }
+  };
+
+  const handleJoinPrivate = async () => {
+    if (joinCode.length !== 6) return;
+    try {
+        const { data: gameId, error } = await supabase.rpc('join_private_lobby', { 
+            v_user_id: user.id, 
+            v_code: joinCode.toUpperCase() 
+        });
+        
+        if (error) {
+            alert(`Join Error: ${error.message}`);
+            return;
+        }
+        
+        if (gameId) {
+            navigate(`/private-lobby/${gameId}`);
+        } else {
+            alert('Invalid or expired lobby code.');
+        }
+    } catch (err) {
+        console.error('Join Error:', err);
+    }
+  };
 
   const startMatchmaking = async (mode) => {
     if (!user) return;
-    
     setSearchMode(mode);
     setIsSearching(true);
-    
     try {
-      // 1. Join matchmaking and get Room ID
-      const { data: gameId, error } = await supabase.rpc('join_matchmaking', { 
-        v_user_id: user.id,
-        v_mode: mode
-      });
-
+      const { data: gameId, error } = await supabase.rpc('join_matchmaking', { v_user_id: user.id, v_mode: mode });
       if (error) throw error;
-
-      // 2. Check room status immediately
       const { data: gameData } = await supabase.from('games').select('status').eq('id', gameId).single();
-      
       if (gameData?.status === 'IN_PROGRESS') {
-          // If already full, jump in!
           navigate(`/game-room/${gameId}`);
           return;
       }
-
-      // 3. If PENDING, stay here and listen for the "Start" event
       const channel = supabase.channel(`waiting-${gameId}`)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` }, (payload) => {
             if (payload.new.status === 'IN_PROGRESS') {
                 supabase.removeChannel(channel);
                 navigate(`/game-room/${gameId}`);
             }
-        })
-        .subscribe();
-
+        }).subscribe();
     } catch (err) {
       console.error('Matchmaking error:', err);
-      setIsSearching(true); // Keep searching indicator but maybe show error
+      setIsSearching(false);
     }
   };
 
@@ -63,7 +99,7 @@ const ArenaLobby = () => {
   if (isSearching) {
     return (
       <main className="flex-grow flex items-center justify-center bg-[#131314]">
-        <div className="text-center space-y-8">
+        <div className="text-center space-y-8 animate-in fade-in duration-700">
           <div className="relative inline-block">
             <div className="w-24 h-24 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
             <div className="absolute inset-0 flex items-center justify-center">
@@ -76,15 +112,15 @@ const ArenaLobby = () => {
               {searchMode} matching - Awaiting tactical target...
             </p>
           </div>
-          <button onClick={() => window.location.reload()} className="text-[10px] font-bold text-white/40 uppercase tracking-widest hover:text-white">Cancel</button>
+          <button onClick={() => window.location.reload()} className="text-[10px] font-bold text-white/40 uppercase tracking-widest hover:text-white transition-colors">Abort Search</button>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="flex-grow bg-[#131314] p-6 md:p-12 flex flex-col justify-center items-center">
-      <div className="max-w-4xl w-full space-y-16">
+    <main className="flex-grow bg-[#131314] p-6 md:p-12 flex flex-col justify-center items-center overflow-y-auto">
+      <div className="max-w-4xl w-full space-y-16 py-12">
         <header className="flex flex-col items-center text-center space-y-4">
           <h1 className="text-6xl md:text-7xl font-black text-white tracking-widest uppercase leading-none">
             MultiPlayer <span className="text-primary">lobby</span>
