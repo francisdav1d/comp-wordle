@@ -5,9 +5,27 @@ const Profile = () => {
   const { userProfile, logout } = useAuth();
   
   const heatmapCells = useMemo(() => {
+    const activity = userProfile?.daily_activity || {};
     const colors = ['bg-[#1c1c1d]', 'bg-[#125217]', 'bg-[#2d6b2d]', 'bg-[#6aaa64]', 'bg-[#94d78c]'];
-    return Array.from({ length: 52 * 7 }, () => colors[Math.floor(Math.pow(Math.random(), 3) * 5)]);
-  }, []);
+    const cells = [];
+    
+    const now = new Date();
+    for (let i = 363; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toLocaleDateString('en-CA');
+      const count = activity[dateStr] || 0;
+      
+      let colorIdx = 0;
+      if (count > 0) colorIdx = 1;
+      if (count > 2) colorIdx = 2;
+      if (count > 5) colorIdx = 3;
+      if (count >= 10) colorIdx = 4;
+      
+      cells.push({ color: colors[colorIdx], date: dateStr, count });
+    }
+    return cells;
+  }, [userProfile?.daily_activity]);
 
   const distribution = userProfile?.guess_distribution || { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0 };
   const wins = userProfile?.wins || 0;
@@ -78,8 +96,12 @@ const Profile = () => {
             <div className="w-full overflow-x-auto no-scrollbar py-2">
               <div className="flex gap-1">
                 <div className="grid grid-flow-col grid-rows-7 gap-1">
-                  {heatmapCells.map((color, i) => (
-                    <div key={i} className={`w-2.5 h-2.5 ${color} border border-white/5`}></div>
+                  {heatmapCells.map((cell, i) => (
+                    <div 
+                      key={i} 
+                      title={`${cell.date}: ${cell.count} sessions`}
+                      className={`w-2.5 h-2.5 ${cell.color} border border-white/5`}
+                    ></div>
                   ))}
                 </div>
               </div>

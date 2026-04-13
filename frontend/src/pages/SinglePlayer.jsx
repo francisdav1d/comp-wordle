@@ -79,6 +79,26 @@ const SinglePlayer = () => {
       const guessNum = (finalRowIndex + 1).toString();
       newDist[guessNum] = (newDist[guessNum] || 0) + 1;
     }
+    // Daily Streak Logic
+    const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const lastPlayedStr = userProfile.last_played_date;
+    let newDailyStreak = userProfile.current_daily_streak || 0;
+
+    if (!lastPlayedStr) {
+      newDailyStreak = 1;
+    } else if (lastPlayedStr !== todayStr) {
+      const lastDate = new Date(lastPlayedStr + 'T00:00:00');
+      const todayDate = new Date(todayStr + 'T00:00:00');
+      const diffDays = Math.round((todayDate - lastDate) / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 1) {
+        newDailyStreak += 1;
+      } else {
+        newDailyStreak = 1;
+      }
+    }
+    const newMaxDailyStreak = Math.max(newDailyStreak, userProfile.max_daily_streak || 0);
+
     let newAvgTime = userProfile.avg_solve_time || 0;
     if (isWin) {
       newAvgTime = Math.floor(((userProfile.avg_solve_time || 0) * (newWins - 1) + solveTime) / newWins);
@@ -106,6 +126,9 @@ const SinglePlayer = () => {
       setRatingChange(change);
     }
 
+    const newDailyActivity = { ...(userProfile.daily_activity || {}) };
+    newDailyActivity[todayStr] = (newDailyActivity[todayStr] || 0) + 1;
+
     await updateProfileStats({
       total_matches: newTotalMatches,
       wins: newWins,
@@ -114,7 +137,11 @@ const SinglePlayer = () => {
       max_win_streak: newMaxWinStreak,
       guess_distribution: newDist,
       avg_solve_time: newAvgTime,
-      single_player_elo: nextRating
+      single_player_elo: nextRating,
+      current_daily_streak: newDailyStreak,
+      max_daily_streak: newMaxDailyStreak,
+      last_played_date: todayStr,
+      daily_activity: newDailyActivity
     });
   };
 
@@ -337,7 +364,7 @@ const SinglePlayer = () => {
           <div className="order-1 xl:order-2 xl:col-span-9 flex flex-col items-center justify-between xl:justify-center py-6 md:py-4 w-full xl:min-h-0 min-h-[calc(100vh-140px)]">
             {/* Mobile Mode Selector */}
             <div className="xl:hidden w-full max-w-xl px-1 mb-6">
-              <div className="bg-[#1c1c1d] p-1 border border-[#3a3a3c] rounded-xl flex">
+              <div className="bg-[#1c1c1d] border border-[#3a3a3c] rounded-xl flex">
                 <button
                   onClick={() => gameState === 'playing' && !hasStarted && setIsRated(true)}
                   className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-lg transition-all ${isRated ? 'bg-primary text-[#131314]' : 'text-[#818384] hover:text-white'}`}
@@ -361,7 +388,7 @@ const SinglePlayer = () => {
                     {row.map((tile, tIdx) => (
                       <div
                         key={tIdx}
-                        className={`w-16 h-16 sm:w-16 sm:h-16 xl:w-14 xl:sm:w-16 relative tile-flip ${tile.state !== LetterState.INITIAL ? 'tile-revealed' : ''} ${tile.letter && tile.state === LetterState.INITIAL ? 'tile-anim-zoom' : ''}`}
+                        className={`w-14 h-14 sm:w-16 sm:h-16 xl:w-14 xl:sm:w-16 relative tile-flip ${tile.state !== LetterState.INITIAL ? 'tile-revealed' : ''} ${tile.letter && tile.state === LetterState.INITIAL ? 'tile-anim-zoom' : ''}`}
                       >
                         <div
                           className={`tile-flip-inner ${success && rIdx === currentRowIndex ? 'tile-anim-jump' : ''}`}
@@ -370,10 +397,11 @@ const SinglePlayer = () => {
                             animationDelay: `${tIdx * 100}ms`
                           }}
                         >
-                          <div className={`tile-front w-full h-full rounded-lg text-3xl xl:text-2xl xl:md:text-3xl font-bold border-2 ${tile.letter ? 'border-[#818384]' : 'border-[#3a3a3c]'} text-white flex items-center justify-center`}>
+                          {/* MOBILE FONT: Change 'text-2xl' to resize letters in boxes */}
+                          <div className={`tile-front w-full h-full rounded-lg text-2xl xl:text-2xl xl:md:text-3xl font-bold border-2 ${tile.letter ? 'border-[#818384]' : 'border-[#3a3a3c]'} text-white flex items-center justify-center`}>
                             {tile.letter.toUpperCase()}
                           </div>
-                          <div className={`tile-back w-full h-full rounded-lg text-3xl xl:text-2xl xl:md:text-3xl font-bold text-[#131314] ${getTileStyle(tile.state)} flex items-center justify-center`}>
+                          <div className={`tile-back w-full h-full rounded-lg text-2xl xl:text-2xl xl:md:text-3xl font-bold text-[#131314] ${getTileStyle(tile.state)} flex items-center justify-center`}>
                             {tile.letter.toUpperCase()}
                           </div>
                         </div>
@@ -385,23 +413,23 @@ const SinglePlayer = () => {
 
               {/* Responsive Keyboard */}
               {/* Virtual Keyboard */}
-              <div className="w-full max-w-xl flex flex-col gap-1.5 md:gap-2 px-1 mb-4">
+              <div className="w-full max-w-xl flex flex-col gap-1 md:gap-2 px-1 mb-4">
                 <div className="flex justify-center gap-1 md:gap-1.5">
                   {['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'].map(k => (
-                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-14 md:h-14 rounded-md font-black text-xs md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
+                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-12 md:h-14 rounded-md font-black text-xs md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
                   ))}
                 </div>
                 <div className="flex justify-center gap-1 md:gap-1.5 px-3 md:px-8">
                   {['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'].map(k => (
-                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-14 md:h-14 rounded-md font-black text-xs md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
+                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-12 md:h-14 rounded-md font-black text-xs md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
                   ))}
                 </div>
                 <div className="flex justify-center gap-1 md:gap-1.5">
-                  <button onClick={() => onKey('Enter')} className="px-2 md:px-4 h-14 md:h-14 rounded-md bg-[#818384] text-white font-black text-[9px] md:text-xs active:opacity-75">ENTER</button>
+                  <button onClick={() => onKey('Enter')} className="px-2 md:px-4 h-12 md:h-14 rounded-md bg-[#818384] text-white font-black text-[9px] md:text-xs active:opacity-75">ENTER</button>
                   {['Z', 'X', 'C', 'V', 'B', 'N', 'M'].map(k => (
-                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-14 md:h-14 rounded-md font-black text-xs md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
+                    <button key={k} onClick={() => onKey(k)} className={`flex-1 h-12 md:h-14 rounded-md font-black text-xs md:text-sm active:opacity-75 transition-all ${getKeyStyle(k)}`}>{k}</button>
                   ))}
-                  <button onClick={() => onKey('Backspace')} className="px-2 md:px-4 h-14 md:h-14 rounded-md bg-[#818384] text-white flex items-center justify-center active:opacity-75">
+                  <button onClick={() => onKey('Backspace')} className="px-2 md:px-4 h-12 md:h-14 rounded-md bg-[#818384] text-white flex items-center justify-center active:opacity-75">
                     <span className="material-symbols-outlined text-lg md:text-xl">backspace</span>
                   </button>
                 </div>
