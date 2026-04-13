@@ -263,7 +263,7 @@ const SinglePlayer = () => {
           {/* Stats Column - Moves to bottom on smaller screens */}
           <div className="order-2 xl:order-1 xl:col-span-3 space-y-4 md:space-y-6">
             {/* Mode Selector */}
-            <div className="hidden xl:block bg-[#1c1c1d]  border border-[#3a3a3c] rounded-xl flex">
+            <div className="hidden xl:flex bg-[#1c1c1d]  border border-[#3a3a3c] rounded-xl">
               <button
                 onClick={() => gameState === 'playing' && !hasStarted && setIsRated(true)}
                 className={`flex-1 py-3 text-[10px] font-black uppercase tracking-[0.2em] rounded-lg transition-all ${isRated ? 'bg-primary text-[#131314]' : 'text-[#818384] hover:text-white'}`}
