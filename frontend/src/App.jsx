@@ -11,6 +11,7 @@ import Social from './pages/Social';
 import Leaderboard from './pages/Leaderboard';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
+import ArenaLobby from './pages/ArenaLobby';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -39,7 +40,8 @@ function App() {
               
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/single-player" element={<ProtectedRoute><SinglePlayer /></ProtectedRoute>} />
-              <Route path="/arena" element={<ProtectedRoute><GameArena /></ProtectedRoute>} />
+              <Route path="/arena" element={<ProtectedRoute><ArenaLobby /></ProtectedRoute>} />
+              <Route path="/game-room/:gameId" element={<ProtectedRoute><GameArena /></ProtectedRoute>} />
               <Route path="/social" element={<ProtectedRoute><Social /></ProtectedRoute>} />
               <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

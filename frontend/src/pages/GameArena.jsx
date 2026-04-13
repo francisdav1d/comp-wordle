@@ -1,219 +1,277 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
+import { LetterState } from '../lib/wordleTypes';
+import { allWords } from '../lib/words';
 
 const GameArena = () => {
+  const { gameId } = useParams();
+  const navigate = useNavigate();
+  const { user, userProfile } = useAuth();
+  
+  // Game State
+  const [game, setGame] = useState(null);
+  const [participants, setParticipants] = useState([]);
+  const [answer, setAnswer] = useState('');
+  
+  // Board State
+  const [board, setBoard] = useState(Array.from({ length: 6 }, () => Array.from({ length: 5 }, () => ({ letter: '', state: LetterState.INITIAL }))));
+  const [currentRowIndex, setCurrentRowIndex] = useState(0);
+  const [letterStates, setLetterStates] = useState({});
+  const [gameState, setGameState] = useState('waiting'); 
+  const [message, setMessage] = useState('');
+  const [timer, setTimer] = useState(0);
+  const timerRef = useRef(null);
+
+  // 1. Initial Fetch
+  useEffect(() => {
+    const fetchGameData = async () => {
+      if (!gameId) return;
+
+      const { data: gameData } = await supabase.from('games').select('*').eq('id', gameId).single();
+      if (!gameData) return;
+
+      setGame(gameData);
+      setAnswer(gameData.word);
+      if (gameData.status === 'IN_PROGRESS') {
+        setGameState('playing');
+        startTimer();
+      }
+
+      const { data: partData } = await supabase.from('game_participants').select('*, profiles(username, avatar_url)').eq('game_id', gameId);
+      if (partData) setParticipants(partData);
+    };
+
+    fetchGameData();
+  }, [gameId]);
+
+  // 2. Realtime
+  useEffect(() => {
+    if (!gameId) return;
+
+    const channel = supabase
+      .channel(`game-${gameId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_participants', filter: `game_id=eq.${gameId}` }, () => refreshParticipants())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` }, (payload) => {
+        setGame(payload.new);
+        if (payload.new.status === 'FINISHED' && gameState === 'playing') {
+            setGameState('finished');
+            clearInterval(timerRef.current);
+            showMessage('MATCH TERMINATED', -1);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [gameId, gameState]);
+
+  const refreshParticipants = async () => {
+    const { data } = await supabase.from('game_participants').select('*, profiles(username, avatar_url)').eq('game_id', gameId);
+    if (data) setParticipants(data);
+  };
+
+  const startTimer = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => setTimer(v => v + 1), 1000);
+  };
+
+  const showMessage = (msg, time = 2000) => {
+    setMessage(msg);
+    if (time > 0) setTimeout(() => setMessage(''), time);
+  };
+
+  const syncProgress = async (newBoard, rowIndex, status) => {
+    const me = participants.find(p => p.user_id === user.id);
+    if (!me) return;
+
+    const lastGuess = newBoard[rowIndex].map(t => t.letter).join('');
+    const lastResult = newBoard[rowIndex].map(t => t.state);
+    const updatedGuesses = [...(me.guesses || []), { guess: lastGuess, result: lastResult }];
+
+    await supabase.from('game_participants').update({ 
+      guesses: updatedGuesses,
+      score: status === 'won' ? 100 : 0,
+      finished_at: status !== 'playing' ? new Date().toISOString() : null
+    }).eq('id', me.id);
+
+    if (status === 'won') {
+        await supabase.from('games').update({ status: 'FINISHED', finished_at: new Date().toISOString() }).eq('id', gameId);
+    }
+  };
+
+  const onKey = useCallback(async (key) => {
+    if (gameState !== 'playing') return;
+    const isLetter = /^[a-zA-Z]$/.test(key);
+    if (isLetter) {
+        setBoard(prev => {
+            const newBoard = JSON.parse(JSON.stringify(prev));
+            const row = newBoard[currentRowIndex];
+            const emptyIndex = row.findIndex(t => !t.letter);
+            if (emptyIndex !== -1) { row[emptyIndex].letter = key.toLowerCase(); return newBoard; }
+            return prev;
+          });
+    } else if (key === 'Backspace') {
+      setBoard(prev => {
+        const newBoard = JSON.parse(JSON.stringify(prev));
+        const row = newBoard[currentRowIndex];
+        for (let i = 4; i >= 0; i--) { if (row[i].letter) { row[i].letter = ''; break; } }
+        return newBoard;
+      });
+    } else if (key === 'Enter') {
+      const row = board[currentRowIndex];
+      const guess = row.map(t => t.letter).join('');
+      if (guess.length !== 5 || !allWords.includes(guess)) { showMessage(guess.length !== 5 ? 'TOO SHORT' : 'NOT IN LIST'); return; }
+
+      const newBoard = JSON.parse(JSON.stringify(board));
+      const newLetterStates = { ...letterStates };
+      const currentBoardRow = newBoard[currentRowIndex];
+      const answerLetters = answer.split('');
+
+      currentBoardRow.forEach((tile, i) => { if (tile.letter === answerLetters[i]) { tile.state = LetterState.CORRECT; newLetterStates[tile.letter] = LetterState.CORRECT; answerLetters[i] = null; } });
+      currentBoardRow.forEach((tile, i) => { if (tile.state !== LetterState.CORRECT && answerLetters.includes(tile.letter)) { tile.state = LetterState.PRESENT; if (newLetterStates[tile.letter] !== LetterState.CORRECT) newLetterStates[tile.letter] = LetterState.PRESENT; answerLetters[answerLetters.indexOf(tile.letter)] = null; } });
+      currentBoardRow.forEach((tile) => { if (tile.state === LetterState.INITIAL) { tile.state = LetterState.ABSENT; if (!newLetterStates[tile.letter]) newLetterStates[tile.letter] = LetterState.ABSENT; } });
+
+      setBoard(newBoard);
+      setLetterStates(newLetterStates);
+
+      let status = 'playing';
+      if (guess === answer) {
+        status = 'won';
+        setGameState('won');
+        clearInterval(timerRef.current);
+        showMessage('VICTORY!', -1);
+      } else if (currentRowIndex >= 5) {
+        status = 'lost';
+        setGameState('lost');
+        clearInterval(timerRef.current);
+        showMessage(answer.toUpperCase(), -1);
+      } else {
+        setCurrentRowIndex(prev => prev + 1);
+      }
+
+      syncProgress(newBoard, currentRowIndex, status);
+    }
+  }, [board, currentRowIndex, gameState, answer, letterStates, participants, user.id]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => onKey(e.key);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onKey]);
+
+  const isFinished = gameState === 'won' || gameState === 'lost' || gameState === 'finished';
+
   return (
-    <main className="flex-grow grid grid-cols-1 lg:grid-cols-12 gap-0 lg:overflow-hidden">
-      {/* Left: Live Intelligence Feed */}
-      <aside className="lg:col-span-3 bg-surface-container-low p-6 lg:border-r border-transparent flex flex-col space-y-6">
+    <main className="flex-grow grid grid-cols-1 lg:grid-cols-12 gap-0 lg:overflow-hidden relative">
+      <aside className="lg:col-span-3 bg-surface-container-low p-6 flex flex-col space-y-6">
         <div>
-          <h3 className="uppercase tracking-widest text-outline font-bold text-[10px] mb-4">Opponent Intelligence</h3>
+          <h3 className="uppercase tracking-widest text-outline font-bold text-[10px] mb-4 text-white/40">Opponent Intelligence</h3>
           <div className="space-y-4">
-            {/* Opponent 1: Viper_Grid */}
-            <div className="bg-surface-container-high p-3 rounded shadow-sm">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-sm font-bold text-on-surface">Viper_Grid</span>
-                <span className="text-[10px] font-bold text-primary bg-on-primary/10 px-2 py-0.5 rounded">Turn 4</span>
+            {participants.filter(p => p.user_id !== user.id).map((opp) => (
+              <div key={opp.id} className="bg-[#1c1c1d] border border-white/5 p-4 rounded-xl">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-sm font-bold text-white">{opp.profiles?.username}</span>
+                  <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">Turn {opp.guesses?.length || 0}</span>
+                </div>
+                <div className="grid grid-rows-6 gap-1 w-24 mx-auto">
+                  {[...Array(6)].map((_, r) => (
+                    <div key={r} className="grid grid-cols-5 gap-1">
+                      {[...Array(5)].map((_, c) => {
+                        const state = opp.guesses?.[r]?.result?.[c] || LetterState.INITIAL;
+                        const color = state === LetterState.CORRECT ? 'bg-primary' : state === LetterState.PRESENT ? 'bg-secondary' : state === LetterState.ABSENT ? 'bg-[#3a3a3c]' : 'bg-transparent border border-white/5';
+                        return <div key={c} className={`w-4 h-4 rounded-sm ${color}`}></div>;
+                      })}
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="grid grid-cols-5 gap-1 w-24">
-                {/* Turn 1 */}
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-                <div className="w-4 h-4 bg-secondary rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-                {/* Turn 2 */}
-                <div className="w-4 h-4 bg-primary rounded-sm"></div>
-                <div className="w-4 h-4 bg-secondary rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-                {/* Turn 3 */}
-                <div className="w-4 h-4 bg-primary rounded-sm"></div>
-                <div className="w-4 h-4 bg-primary rounded-sm"></div>
-                <div className="w-4 h-4 bg-secondary rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-              </div>
-            </div>
-            {/* Opponent 2: EchoMaster */}
-            <div className="bg-surface-container-high p-3 rounded shadow-sm opacity-90">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-sm font-bold text-on-surface">EchoMaster</span>
-                <span className="text-[10px] font-bold text-tertiary bg-tertiary/10 px-2 py-0.5 rounded">Turn 3</span>
-              </div>
-              <div className="grid grid-cols-5 gap-1 w-24">
-                <div className="w-4 h-4 bg-secondary rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-                <div className="w-4 h-4 bg-secondary rounded-sm"></div>
-                <div className="w-4 h-4 bg-secondary rounded-sm"></div>
-                <div className="w-4 h-4 bg-primary rounded-sm"></div>
-                <div className="w-4 h-4 bg-primary rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-              </div>
-            </div>
-            {/* Opponent 3: Lexi_Lover */}
-            <div className="bg-surface-container-high p-3 rounded shadow-sm opacity-80">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-sm font-bold text-on-surface">Lexi_Lover</span>
-                <span className="text-[10px] font-bold text-error bg-error/10 px-2 py-0.5 rounded">Turn 5</span>
-              </div>
-              <div className="grid grid-cols-5 gap-1 w-24 opacity-60">
-                {[...Array(10)].map((_, i) => <div key={i} className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>)}
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-                <div className="w-4 h-4 bg-secondary rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-                <div className="w-4 h-4 bg-primary rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-                <div className="w-4 h-4 bg-surface-container-highest rounded-sm"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="mt-auto pt-6">
-          <div className="bg-primary/5 p-4 rounded border-l-2 border-primary">
-            <p className="text-xs text-on-surface-variant leading-relaxed">
-              <span className="text-primary font-bold">INSIGHT:</span> Viper_Grid is currently matching your Turn 3 accuracy. Focus on eliminating vowels.
-            </p>
+            ))}
           </div>
         </div>
       </aside>
 
-      {/* Center: Game Board & Metrics */}
       <section className="lg:col-span-6 bg-surface p-4 flex flex-col items-center justify-between">
-        {/* Metrics Bar */}
         <div className="w-full max-w-lg grid grid-cols-3 gap-4 mb-8">
-          <div className="bg-surface-container-low p-3 rounded-lg text-center">
-            <div className="text-[10px] uppercase tracking-widest text-outline font-bold mb-1">Time Remaining</div>
-            <div className="text-xl font-headline font-extrabold text-on-surface tracking-tight">04:22</div>
+          <div className="bg-[#1c1c1d] p-3 rounded-lg text-center border border-white/5">
+            <div className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-1">Time</div>
+            <div className="text-xl font-bold text-white tracking-tight">{Math.floor(timer/60).toString().padStart(2, '0')}:{(timer%60).toString().padStart(2, '0')}</div>
           </div>
-          <div className="bg-surface-container-low p-3 rounded-lg text-center border-t-2 border-primary-container">
-            <div className="text-[10px] uppercase tracking-widest text-outline font-bold mb-1">Solver Success</div>
-            <div className="text-xl font-headline font-extrabold text-primary tracking-tight">94.2%</div>
+          <div className="bg-[#1c1c1d] p-3 rounded-lg text-center border-t-2 border-primary border-x border-white/5 border-b border-white/5">
+            <div className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-1">Status</div>
+            <div className="text-xl font-bold text-primary tracking-tight uppercase">{gameState}</div>
           </div>
-          <div className="bg-surface-container-low p-3 rounded-lg text-center">
-            <div className="text-[10px] uppercase tracking-widest text-outline font-bold mb-1">Avg Turns</div>
-            <div className="text-xl font-headline font-extrabold text-on-surface tracking-tight">3.82</div>
+          <div className="bg-[#1c1c1d] p-3 rounded-lg text-center border border-white/5">
+            <div className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-1">RP</div>
+            <div className="text-xl font-bold text-white tracking-tight">{userProfile?.multiplayer_elo || 0}</div>
           </div>
         </div>
 
-        {/* Wordle Grid */}
-        <div className="grid grid-rows-6 gap-2 mb-8">
-          {/* Guess 1: STARE */}
-          <div className="grid grid-cols-5 gap-2">
-            {['S','T','A','R','E'].map((l,i) => <div key={i} className="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center bg-surface-container-highest text-2xl font-black border-2 border-transparent text-on-surface">{l}</div>)}
+        <div className="relative">
+          {message && <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 bg-primary text-[#131314] px-4 py-2 rounded font-bold text-xs uppercase tracking-widest shadow-xl animate-bounce">{message}</div>}
+          <div className="grid grid-rows-6 gap-2 mb-8">
+            {board.map((row, rIdx) => (
+              <div key={rIdx} className="grid grid-cols-5 gap-2">
+                {row.map((tile, tIdx) => (
+                  <div key={tIdx} className={`w-14 h-14 md:w-16 md:h-16 flex items-center justify-center text-2xl font-black rounded transition-all duration-500 ${tile.state === LetterState.INITIAL ? (tile.letter ? 'border-2 border-[#818384] text-white bg-white/5' : 'border-2 border-white/5 bg-transparent') : 'border-none text-[#131314]'} ${tile.state === LetterState.CORRECT ? 'bg-primary' : tile.state === LetterState.PRESENT ? 'bg-secondary' : tile.state === LetterState.ABSENT ? 'bg-[#3a3a3c]' : ''}`}>
+                    {tile.letter.toUpperCase()}
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
-          {/* Guess 2: CLOUD */}
-          <div className="grid grid-cols-5 gap-2">
-            <div className="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center bg-primary text-2xl font-black text-on-primary-container">C</div>
-            <div className="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center bg-secondary text-2xl font-black text-on-secondary">L</div>
-            <div className="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center bg-primary text-2xl font-black text-on-primary-container">O</div>
-            <div className="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center bg-surface-container-highest text-2xl font-black text-on-surface">U</div>
-            <div className="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center bg-surface-container-highest text-2xl font-black text-on-surface">D</div>
-          </div>
-          {/* Guess 3: COLON */}
-          <div className="grid grid-cols-5 gap-2">
-            {['C','O','L','O','N'].map((l,i) => <div key={i} className="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center bg-primary text-2xl font-black text-on-primary-container">{l}</div>)}
-          </div>
-          {/* Empty rows 4-6 */}
-          {[4,5,6].map(row => (
-            <div key={row} className="grid grid-cols-5 gap-2">
-              {[...Array(5)].map((_,i) => <div key={i} className="w-14 h-14 md:w-16 md:h-16 border-2 border-surface-container-highest bg-transparent"></div>)}
-            </div>
-          ))}
         </div>
 
-        {/* On-Screen Keyboard */}
-        <div className="w-full max-w-2xl px-2 mb-4">
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-center gap-1.5">
-              {['Q','W','E','R','T','Y','U','I'].map(k => <button key={k} className="flex-1 h-12 md:h-14 bg-surface-container-highest rounded font-bold text-sm uppercase">{k}</button>)}
-              <button className="flex-1 h-12 md:h-14 bg-primary rounded font-bold text-sm uppercase text-on-primary">O</button>
-              <button className="flex-1 h-12 md:h-14 bg-surface-container-highest rounded font-bold text-sm uppercase">P</button>
+        <div className="w-full max-w-2xl px-2">
+          {isFinished ? (
+              <div className="bg-[#1c1c1d] border border-white/5 p-8 rounded-2xl text-center space-y-6 animate-in fade-in zoom-in duration-300">
+                  <div>
+                    <h3 className="text-[10px] font-bold text-primary tracking-[0.3em] uppercase mb-1">Match Concluded</h3>
+                    <p className="text-4xl font-black text-white uppercase tracking-tighter">{gameState === 'won' ? 'VICTORY' : 'DEFEATED'}</p>
+                  </div>
+                  <div className="flex gap-4 items-center justify-center">
+                    <button onClick={() => navigate('/arena')} className="px-8 py-3 bg-primary text-[#131314] font-bold text-xs uppercase tracking-widest rounded-lg transition-transform hover:scale-105 active:scale-95">Play Again</button>
+                    <button onClick={() => navigate('/dashboard')} className="px-8 py-3 bg-white/5 text-white/40 font-bold text-xs uppercase tracking-widest rounded-lg hover:text-white transition-colors">Main Menu</button>
+                  </div>
+              </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+                {[['Q','W','E','R','T','Y','U','I','O','P'],['A','S','D','F','G','H','J','K','L'],['Enter', 'Z','X','C','V','B','N','M', 'Backspace']].map((row, i) => (
+                <div key={i} className="flex justify-center gap-1.5">
+                    {row.map(k => {
+                    const state = letterStates[k.toLowerCase()];
+                    const keyStyle = state === LetterState.CORRECT ? 'bg-primary text-[#131314]' : state === LetterState.PRESENT ? 'bg-secondary text-[#131314]' : state === LetterState.ABSENT ? 'bg-[#3a3a3c] text-white' : 'bg-[#1c1c1d] border border-white/10 text-white';
+                    return <button key={k} onClick={() => onKey(k)} className={`h-12 md:h-14 rounded-md font-bold text-xs uppercase active:opacity-50 ${k === 'Enter' || k === 'Backspace' ? 'flex-[1.5] bg-white/10 text-white' : `flex-1 ${keyStyle}`}`}>{k === 'Backspace' ? <span className="material-symbols-outlined text-sm">backspace</span> : k}</button>;
+                    })}
+                </div>
+                ))}
             </div>
-            <div className="flex justify-center gap-1.5 px-4">
-              {['A','S','D','F','G','H','J','K'].map(k => <button key={k} className="flex-1 h-12 md:h-14 bg-surface-container-highest rounded font-bold text-sm uppercase">{k}</button>)}
-              <button className="flex-1 h-12 md:h-14 bg-secondary rounded font-bold text-sm uppercase text-on-secondary">L</button>
-            </div>
-            <div className="flex justify-center gap-1.5">
-              <button className="flex-[1.5] h-12 md:h-14 bg-surface-container-high rounded font-bold text-[10px] uppercase">Enter</button>
-              {['Z','X'].map(k => <button key={k} className="flex-1 h-12 md:h-14 bg-surface-container-highest rounded font-bold text-sm uppercase">{k}</button>)}
-              <button className="flex-1 h-12 md:h-14 bg-primary rounded font-bold text-sm uppercase text-on-primary">C</button>
-              {['V','B'].map(k => <button key={k} className="flex-1 h-12 md:h-14 bg-surface-container-highest rounded font-bold text-sm uppercase">{k}</button>)}
-              <button className="flex-1 h-12 md:h-14 bg-primary rounded font-bold text-sm uppercase text-on-primary">N</button>
-              <button className="flex-1 h-12 md:h-14 bg-surface-container-highest rounded font-bold text-sm uppercase">M</button>
-              <button className="flex-[1.5] h-12 md:h-14 bg-surface-container-high rounded font-bold text-sm uppercase">
-                <span className="material-symbols-outlined text-base">backspace</span>
-              </button>
-            </div>
-          </div>
+          )}
         </div>
       </section>
 
-      {/* Right: Rankings / Live Stats */}
       <aside className="lg:col-span-3 bg-surface-container-low p-6 flex flex-col space-y-8">
-        <div>
-          <h3 className="uppercase tracking-widest text-outline font-bold text-[10px] mb-4">Rank Progress</h3>
-          <div className="relative bg-surface-container-high h-2 rounded-full overflow-hidden mb-2">
-            <div className="absolute inset-0 bg-tertiary-fixed-dim" style={{ width: '75%' }}></div>
-          </div>
-          <div className="flex justify-between items-center text-[10px] font-bold text-outline uppercase tracking-wider">
-            <span>Platinum I</span>
-            <span className="text-on-surface">320 / 400 LP</span>
-          </div>
-        </div>
-
-        <div className="flex flex-col space-y-4">
-          <h3 className="uppercase tracking-widest text-outline font-bold text-[10px]">Leaderboard Standing</h3>
+        <div className="grow">
+          <h3 className="uppercase tracking-widest text-outline font-bold text-[10px] mb-4 text-white/40">Combatants</h3>
           <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-tertiary-fixed flex items-center justify-center font-bold text-[#131314] text-xs">1</div>
-              <div className="flex-grow">
-                <div className="text-xs font-bold text-on-surface">Syntax_Error</div>
-                <div className="text-[10px] text-outline">Streak: 42</div>
+            {participants.map((p) => (
+              <div key={p.id} className={`flex items-center gap-3 p-2 rounded ${p.user_id === user.id ? 'bg-primary/10 border-l-2 border-primary' : ''}`}>
+                 <img src={p.profiles?.avatar_url} className="w-8 h-8 rounded-full" alt="" />
+                 <div className="grow">
+                    <p className="text-xs font-bold text-white">{p.profiles?.username} {p.user_id === user.id && '(YOU)'}</p>
+                    <p className="text-[10px] text-white/40 tracking-widest">{p.finished_at ? 'FINISHED' : 'IN PLAY'}</p>
+                 </div>
               </div>
-              <div className="text-xs font-headline font-bold text-tertiary">2,840</div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-on-surface-variant/20 flex items-center justify-center font-bold text-on-surface text-xs">2</div>
-              <div className="flex-grow">
-                <div className="text-xs font-bold text-on-surface">WordWiz_99</div>
-                <div className="text-[10px] text-outline">Streak: 18</div>
-              </div>
-              <div className="text-xs font-headline font-bold">2,710</div>
-            </div>
-            <div className="flex items-center gap-3 border-l-2 border-primary pl-3 bg-primary/5 py-2">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center font-bold text-on-primary text-xs">3</div>
-              <div className="flex-grow">
-                <div className="text-xs font-bold text-on-surface">You</div>
-                <div className="text-[10px] text-outline">Streak: 12</div>
-              </div>
-              <div className="text-xs font-headline font-bold text-primary">2,655</div>
-            </div>
+            ))}
           </div>
         </div>
-
         <div className="mt-auto">
-          <div className="p-4 bg-surface-container-highest rounded-lg">
-            <div className="flex items-center gap-3 mb-2">
-              <span className="material-symbols-outlined text-secondary">trending_up</span>
-              <span className="text-xs font-bold text-on-surface uppercase tracking-tight">Performance Trend</span>
-            </div>
-            <div className="h-24 w-full flex items-end justify-between gap-1">
-              <div className="w-2 bg-outline-variant h-1/2 rounded-t-sm"></div>
-              <div className="w-2 bg-outline-variant h-2/3 rounded-t-sm"></div>
-              <div className="w-2 bg-primary h-3/4 rounded-t-sm"></div>
-              <div className="w-2 bg-primary h-full rounded-t-sm"></div>
-              <div className="w-2 bg-primary h-5/6 rounded-t-sm"></div>
-              <div className="w-2 bg-primary h-full rounded-t-sm"></div>
-            </div>
-          </div>
+          <button onClick={() => navigate('/arena')} className="w-full py-3 bg-[#1c1c1d] text-white/40 font-bold text-[10px] uppercase tracking-widest rounded-lg border border-white/5 hover:text-white transition-all">
+            Abandon Match
+          </button>
         </div>
       </aside>
     </main>
