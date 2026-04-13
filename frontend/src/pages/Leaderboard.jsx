@@ -1,18 +1,94 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { supabase } from '../lib/supabase';
+import { generateLeaderboardData } from '../utils/LeaderboardData';
 
 const Leaderboard = () => {
   const [category, setCategory] = useState('global');
   const [gameMode, setGameMode] = useState('singleplayer');
+  const [realPlayers, setRealPlayers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const rankings = [
-    { rank: '04', name: 'AlphaSolver', tier: 'Diamond Division', elo: '2,650', avg: '3.4', wr: '89.2%', trend: 2, trendDir: 'up', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB7gfxwtlgyFAyigDoisCKlsfSS-YKnvw9p7e4pEaHE_7VATKhQ0Mzq5IXZtT1383HovQzx3WNUTpp1olkYSNlPtfAzMdFuIrZ8lGpNpwZwHhx9HUPLoxcB3XS8Y_x3Y9CKho1RpFc8Oqq7k0LLI0OEBbwCdN-2pYacm9nAqvsIVNlGEHUy41FGLKTyyGpiSn1OgO5B7k3YEuQBHXQjNMR0AewNJnmRgQmendJ9OV2OJuQvLna2HJn9uPnK_06rxw1Cj1Fks2BuI-U' },
-    { rank: '05', name: 'VowelHunter', tier: 'Elite Tier', elo: '2,510', avg: '3.5', wr: '88.7%', trend: 1, trendDir: 'down', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB_7NXX_7f8haW2dg0zmxPQx_Xp93IajAln43RfZ9y1W8NmC_OXrX-gFFdFFhrHXRoNgVXY-CDhHz3ysItvw_moV3alRq4_43m6OlI3H81_q2yraDLkY1gmMknXMaltU0jAZ9eYy2iIetU_eoDLsYnKZ-tASkcS8mbxgpdqtiRzt3fspt3pDo3DXtxZlEdSNS6C74RStmI5OeNT_G9p3UkWcJlrtNwmPXgotIqVn8lmsIZm6pLNivd8QiokMMedu5bAVQU1GUEn34U' },
-    { rank: '06', name: 'CrypticMind', tier: 'Platinum IV', elo: '2,485', avg: '3.7', wr: '86.4%', trend: 0, trendDir: 'flat', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAhJo-k7_8NdTTORy6xmDqO8XTKpOmcGbj07S4-OjwBQ0mKdMZub9OV5tUdDfnv89oB6x18oq7HTsTEgc3yIad5rP5PzV0zGoDG4O_W9qgGiRBf-ufNQPwp2rR92CGd12FGeM4dDQfMHaG5dGlo-KeqEwQstT3bhhhveq_slSlBr7VUuvSiBwNs9uMuSmiEekDdblIY-d-ldZBGjgRoZ8TvYqf1tPTUmptHA8-GsyDC6lB_XzBvMXV7-ruJhZtBCJkkJW5DeGjnFoM' },
-    { rank: '07', name: 'ZeroGuess', tier: 'Platinum III', elo: '2,420', avg: '3.8', wr: '85.0%', trend: 4, trendDir: 'up', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCYFxhcdBKqYV5eqXkbm7CzEJKJAVFX1i_0M1VaSyPzqEddW4UAd02iZURKEgVkL4i2WbVL2x57uh2j556GdAi-MHwweuid4YY3K4QVJR2t2U1Zp3HLx7NFpMkCBadKePhAjIHCeJNCWmXJdQhMhzbiBMtJNYES0KxRm_DYmm82hEc_u6UmAFTmggQgMOeMvF1wWVh6WwALXfCW5LmAO3UwGtuR4izGmPGCSVBAZmBUu6ScDuSWhrYjJBJZsayonEyJK9-X-xgYhmU' },
-    { rank: '08', name: 'WordNinja', tier: 'Gold I', elo: '2,310', avg: '4.1', wr: '79.5%', trend: 2, trendDir: 'up', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB7gfxwtlgyFAyigDoisCKlsfSS-YKnvw9p7e4pEaHE_7VATKhQ0Mzq5IXZtT1383HovQzx3WNUTpp1olkYSNlPtfAzMdFuIrZ8lGpNpwZwHhx9HUPLoxcB3XS8Y_x3Y9CKho1RpFc8Oqq7k0LLI0OEBbwCdN-2pYacm9nAqvsIVNlGEHUy41FGLKTyyGpiSn1OgO5B7k3YEuQBHXQjNMR0AewNJnmRgQmendJ9OV2OJuQvLna2HJn9uPnK_06rxw1Cj1Fks2BuI-U' },
-    { rank: '09', name: 'GridMaster', tier: 'Gold II', elo: '2,250', avg: '4.2', wr: '77.0%', trend: 1, trendDir: 'down', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB_7NXX_7f8haW2dg0zmxPQx_Xp93IajAln43RfZ9y1W8NmC_OXrX-gFFdFFhrHXRoNgVXY-CDhHz3ysItvw_moV3alRq4_43m6OlI3H81_q2yraDLkY1gmMknXMaltU0jAZ9eYy2iIetU_eoDLsYnKZ-tASkcS8mbxgpdqtiRzt3fspt3pDo3DXtxZlEdSNS6C74RStmI5OeNT_G9p3UkWcJlrtNwmPXgotIqVn8lmsIZm6pLNivd8QiokMMedu5bAVQU1GUEn34U' },
-    { rank: '10', name: 'LetterMage', tier: 'Gold III', elo: '2,190', avg: '4.4', wr: '74.2%', trend: 0, trendDir: 'flat', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAhJo-k7_8NdTTORy6xmDqO8XTKpOmcGbj07S4-OjwBQ0mKdMZub9OV5tUdDfnv89oB6x18oq7HTsTEgc3yIad5rP5PzV0zGoDG4O_W9qgGiRBf-ufNQPwp2rR92CGd12FGeM4dDQfMHaG5dGlo-KeqEwQstT3bhhhveq_slSlBr7VUuvSiBwNs9uMuSmiEekDdblIY-d-ldZBGjgRoZ8TvYqf1tPTUmptHA8-GsyDC6lB_XzBvMXV7-ruJhZtBCJkkJW5DeGjnFoM' },
-  ];
+  useEffect(() => {
+    let active = true;
+    const fetchLeaderboard = async () => {
+      setLoading(true);
+      if (!supabase) {
+        if (active) setLoading(false);
+        return;
+      }
+      
+      const orderColumn = gameMode === 'multiplayer' ? 'multiplayer_elo' : 'single_player_elo';
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order(orderColumn, { ascending: false })
+        .limit(30);
+        
+      if (!error && data && active) {
+        setRealPlayers(data);
+      }
+      if (active) setLoading(false);
+    };
+
+    fetchLeaderboard();
+
+    // Subscribe to real-time changes
+    let channel;
+    if (supabase) {
+      channel = supabase
+        .channel('leaderboard_updates')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+           fetchLeaderboard();
+        })
+        .subscribe();
+    }
+    
+    return () => { 
+      active = false;
+      if (channel) supabase.removeChannel(channel); 
+    };
+  }, [gameMode]); // Refetch fully if gameMode changes to ensure we have top 30 for the specific queue!
+
+  const fallbackData = useMemo(() => generateLeaderboardData(), []);
+  
+  const displayRankings = useMemo(() => {
+    let baseData = realPlayers.map((p, i) => {
+        const eloToUse = gameMode === 'multiplayer' ? p.multiplayer_elo : p.single_player_elo;
+        return {
+            rank: (i + 1).toString().padStart(2, '0'),
+            name: p.display_name || p.username || `Player_${p.id.substring(0,4)}`,
+            tier: p.tier || 'Unranked',
+            elo: (eloToUse || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","),
+            avg: p.avg_solve_time ? Number(p.avg_solve_time).toFixed(1) : '3.5',
+            wr: (p.win_rate !== null && p.win_rate !== undefined) ? Number(p.win_rate).toFixed(1) + '%' : '0.0%',
+            trend: p.current_win_streak || 0,
+            trendDir: p.current_win_streak > 0 ? 'up' : 'flat',
+            img: p.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${p.username}`,
+            streak: p.current_daily_streak || 0
+        };
+    });
+    
+    let result = [...baseData];
+    
+    // Fake friends filter
+    if (category === 'friends') {
+      result = result.filter((_, i) => i % 3 === 0);
+    }
+    
+    // Force rank reallocation so numbers 01 to X are perfectly sequential
+    return result.map((r, i) => ({
+      ...r,
+      rank: (i + 1).toString().padStart(2, '0')
+    }));
+  }, [realPlayers, fallbackData, category, gameMode]);
+        
+  const top3 = displayRankings.slice(0, 3);
+  const tableData = displayRankings.slice(3);
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center font-headline text-primary text-xl">Loading Arena Systems...</div>;
+  }
 
   return (
     <main className="max-w-7xl mx-auto px-6 py-10 pb-32">
@@ -37,85 +113,91 @@ const Leaderboard = () => {
       {/* Top 3 */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
         {/* Rank 2 */}
+        {top3[1] && (
         <div className="order-2 md:order-1 flex flex-col justify-end">
           <div className="bg-surface-container-low rounded-xl p-8 relative overflow-hidden group hover:bg-surface-container transition-all">
-            <div className="absolute top-0 right-0 p-4 font-headline text-6xl font-black text-on-surface-variant/5">02</div>
+            <div className="absolute top-0 right-0 p-4 font-headline text-6xl font-black text-on-surface-variant/5">{top3[1].rank.padStart(2, '0')}</div>
             <div className="flex flex-col items-center text-center relative z-10">
               <div className="relative mb-4">
-                <img alt="Velo_City" className="w-24 h-24 rounded-full border-4 border-outline-variant/30" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQoJYVSnoyLjCcvSMXleALQFoMr0z4_Ss-CdFH0R-3Vf_D0iTdXm3Lmw5aT25RhKqxo49KLDLRvCE9JOsdQRxPzo4yvv8bXORqsWP3tp8gVR1417EragKIxW6ncmeFIDXxqdEqGjaCejx-hyjgJT0aazIudf5Qt5w8u963mEZw0wgtL6MA_JaQS69vrFlz8v5BtTjdtVZp6Dx9DdmA0rDJvi3xxuHjSkiiO2gXMZrDyeZRs_K-kXd6LAoz9kHMPoqOSP18KK6t_44" />
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-outline-variant text-on-surface text-[10px] px-3 py-1 rounded-full font-black tracking-widest uppercase shadow-lg">Silver</div>
+                <img alt={top3[1].name} className="w-24 h-24 rounded-full border-4 border-outline-variant/30" src={top3[1].img} />
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-outline-variant text-on-surface text-[10px] px-3 py-1 rounded-full font-black tracking-widest uppercase shadow-lg whitespace-nowrap">{top3[1].tier}</div>
               </div>
-              <h3 className="font-headline text-xl font-bold mb-1">Velo_City</h3>
-              <p className="text-primary font-black text-2xl mb-4 font-headline">2,840 <span className="text-xs text-on-surface-variant font-normal tracking-normal">ELO</span></p>
+              <h3 className="font-headline text-xl font-bold mb-1">{top3[1].name}</h3>
+              <p className="text-primary font-black text-2xl mb-4 font-headline">{top3[1].elo} <span className="text-xs text-on-surface-variant font-normal tracking-normal">ELO</span></p>
               <div className="grid grid-cols-2 gap-4 w-full pt-4 border-t border-outline-variant/10">
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Win Rate</p>
-                  <p className="font-headline font-bold text-lg">94.2%</p>
+                  <p className="font-headline font-bold text-lg">{top3[1].wr}</p>
                 </div>
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Streak</p>
-                  <p className="font-headline font-bold text-lg text-secondary">24</p>
+                  <p className="font-headline font-bold text-lg text-secondary">{top3[1].streak || 24}</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
+        )}
         {/* Rank 1 */}
+        {top3[0] && (
         <div className="order-1 md:order-2 flex flex-col justify-end scale-105">
           <div className="bg-surface-container-high rounded-xl p-10 relative overflow-hidden group border border-primary/20 shadow-[0_20px_50px_rgba(106,170,100,0.1)]">
             <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none"></div>
-            <div className="absolute top-0 right-0 p-4 font-headline text-8xl font-black text-primary/10">01</div>
+            <div className="absolute top-0 right-0 p-4 font-headline text-8xl font-black text-primary/10">{top3[0].rank.padStart(2, '0')}</div>
             <div className="flex flex-col items-center text-center relative z-10">
               <div className="relative mb-6">
-                <img alt="LexiConqueror" className="w-32 h-32 rounded-full border-4 border-primary" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAcTW4YqQh4htNeY-qkJ9tlveMnfGNeyRVoaJbPbLO3p2_l9yVK1jjD09TVN0FmGW2PBVtFKJj0kQRLi6bqsliogXILrj8axsxvam2ntAlHwSyw4Kjv_1oxkFJNLGisktQm_25IJ3wHVCwOtX7f3vs71b06s03TLiMT2FgIRys0N5ZaObPMJLtlh9OHo2ygzGr7cHB_mlWe7oOiytZUJy8rY3wMORtUy5ydPVEnFU5DkzbM4p3EGEwaRFnAFNLS8hdk3lUOgQjHk8" />
-                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-tertiary text-on-tertiary text-[10px] px-4 py-1.5 rounded-full font-black tracking-widest uppercase shadow-xl ring-4 ring-surface-container-high">Grandmaster</div>
+                <img alt={top3[0].name} className="w-32 h-32 rounded-full border-4 border-primary" src={top3[0].img} />
+                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-tertiary text-on-tertiary text-[10px] px-4 py-1.5 rounded-full font-black tracking-widest uppercase shadow-xl ring-4 ring-surface-container-high whitespace-nowrap">{top3[0].tier}</div>
               </div>
-              <h3 className="font-headline text-3xl font-black mb-1">LexiConqueror</h3>
-              <p className="text-primary font-black text-4xl mb-6 font-headline tracking-tighter">3,125 <span className="text-sm text-on-surface-variant font-normal tracking-normal">ELO</span></p>
+              <h3 className="font-headline text-3xl font-black mb-1">{top3[0].name}</h3>
+              <p className="text-primary font-black text-4xl mb-6 font-headline tracking-tighter">{top3[0].elo} <span className="text-sm text-on-surface-variant font-normal tracking-normal">ELO</span></p>
               <div className="grid grid-cols-2 gap-8 w-full pt-6 border-t border-primary/20">
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Avg Guesses</p>
-                  <p className="font-headline font-black text-2xl text-primary">3.1</p>
+                  <p className="font-headline font-black text-2xl text-primary">{top3[0].avg}</p>
                 </div>
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Win Rate</p>
-                  <p className="font-headline font-black text-2xl">99.8%</p>
+                  <p className="font-headline font-black text-2xl">{top3[0].wr}</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
+        )}
         {/* Rank 3 */}
+        {top3[2] && (
         <div className="order-3 flex flex-col justify-end">
           <div className="bg-surface-container-low rounded-xl p-8 relative overflow-hidden group hover:bg-surface-container transition-all">
-            <div className="absolute top-0 right-0 p-4 font-headline text-6xl font-black text-on-surface-variant/5">03</div>
+            <div className="absolute top-0 right-0 p-4 font-headline text-6xl font-black text-on-surface-variant/5">{top3[2].rank.padStart(2, '0')}</div>
             <div className="flex flex-col items-center text-center relative z-10">
               <div className="relative mb-4">
-                <img alt="WordSmith_99" className="w-24 h-24 rounded-full border-4 border-outline-variant/30" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxUsA4ws89I0xpI755vWKli8yymZvKqkJ2nT8NgxJACl9vkPR9dMzXywRILOuz74J6-BY9Ncfy2tRlbSGBQPd2dtYZS6Tz40Hyh-GzFdD6a40sdfyRUq0f-Ps3a49fWj8uMQy5amsPt8pqVMuvyeTFVM6yumO8kSlno-fzZ8vfjZFf1Oy7kCbvLjfyhfrssaBWeOCIdko-gyraLkco37ZuyNNY2M350QAzLuBODDZ2xGybgffbLkFbcKAtj03g6ZckjAky5PMWNfQ" />
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-secondary text-on-secondary text-[10px] px-3 py-1 rounded-full font-black tracking-widest uppercase shadow-lg">Gold Tier</div>
+                <img alt={top3[2].name} className="w-24 h-24 rounded-full border-4 border-outline-variant/30" src={top3[2].img} />
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-secondary text-on-secondary text-[10px] px-3 py-1 rounded-full font-black tracking-widest uppercase shadow-lg whitespace-nowrap">{top3[2].tier}</div>
               </div>
-              <h3 className="font-headline text-xl font-bold mb-1">WordSmith_99</h3>
-              <p className="text-primary font-black text-2xl mb-4 font-headline">2,795 <span className="text-xs text-on-surface-variant font-normal tracking-normal">ELO</span></p>
+              <h3 className="font-headline text-xl font-bold mb-1">{top3[2].name}</h3>
+              <p className="text-primary font-black text-2xl mb-4 font-headline">{top3[2].elo} <span className="text-xs text-on-surface-variant font-normal tracking-normal">ELO</span></p>
               <div className="grid grid-cols-2 gap-4 w-full pt-4 border-t border-outline-variant/10">
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Win Rate</p>
-                  <p className="font-headline font-bold text-lg">91.5%</p>
+                  <p className="font-headline font-bold text-lg">{top3[2].wr}</p>
                 </div>
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Trend</p>
                   <p className="font-headline font-bold text-lg text-primary flex items-center justify-center gap-1">
-                    <span className="material-symbols-outlined text-sm">trending_up</span> +12
+                    <span className="material-symbols-outlined text-sm">{top3[2].trendDir === 'up' ? 'trending_up' : top3[2].trendDir === 'down' ? 'trending_down' : 'horizontal_rule'}</span> {top3[2].trend}
                   </p>
                 </div>
               </div>
             </div>
           </div>
         </div>
+        )}
       </section>
 
       {/* Rankings Table */}
       <section className="mb-16">
-        <h2 className="font-headline text-sm font-black uppercase tracking-[0.2em] text-on-surface-variant mb-6 px-4">Arena Standings: 04 - 10</h2>
+        <h2 className="font-headline text-sm font-black uppercase tracking-[0.2em] text-on-surface-variant mb-6 px-4">Arena Standings: 04 - {tableData.length + 3}</h2>
         <div className="overflow-x-auto no-scrollbar">
           <table className="w-full text-left border-separate border-spacing-y-2">
             <thead>
@@ -129,12 +211,12 @@ const Leaderboard = () => {
               </tr>
             </thead>
             <tbody className="font-body">
-              {rankings.map(r => (
-                <tr key={r.rank} className="bg-surface-container-low hover:bg-surface-container transition-colors group">
+              {tableData.map((r, index) => (
+                <tr key={`${r.rank}-${index}`} className="bg-surface-container-low hover:bg-surface-container transition-colors group">
                   <td className="py-4 pl-6 rounded-l-xl font-headline font-black text-on-surface-variant">{r.rank}</td>
                   <td className="py-4">
                     <div className="flex items-center gap-3">
-                      <img alt={r.name} className="w-8 h-8 rounded-full" src={r.img} />
+                      <img alt={r.name} className="w-8 h-8 rounded-full bg-surface-container" src={r.img} />
                       <div>
                         <p className="font-bold text-on-surface">{r.name}</p>
                         <p className="text-[10px] text-on-surface-variant/70 uppercase tracking-tighter">{r.tier}</p>
