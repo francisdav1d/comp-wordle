@@ -56,10 +56,10 @@ const Profile = () => {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { label: 'Single ELO', value: userProfile?.single_player_elo || 1000, color: 'text-primary' },
-                { label: 'Win Rate', value: `${(userProfile?.win_rate || 0).toFixed(1)}%`, color: 'text-white' },
-                { label: 'Win Streak', value: userProfile?.current_win_streak || 0, color: 'text-secondary' },
-                { label: 'Total Matches', value: userProfile?.total_matches || 0, color: 'text-white' },
+                { label: 'Single ELO', value: userProfile?.single_player_elo ?? 0, color: 'text-primary' },
+                { label: 'Multi ELO', value: userProfile?.multiplayer_elo ?? 0, color: 'text-secondary' },
+                { label: 'Win Rate', value: `${(userProfile?.win_rate ?? 0).toFixed(1)}%`, color: 'text-white' },
+                { label: 'Win Streak', value: userProfile?.current_win_streak ?? 0, color: 'text-white' },
               ].map(stat => (
                 <div key={stat.label} className="bg-[#131314] p-4 border border-[#3a3a3c]">
                   <div className="text-[10px] text-[#818384] font-bold uppercase tracking-tighter mb-1">{stat.label}</div>

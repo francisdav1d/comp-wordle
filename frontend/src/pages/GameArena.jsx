@@ -8,7 +8,7 @@ import { allWords } from '../lib/words';
 const GameArena = () => {
   const { gameId } = useParams();
   const navigate = useNavigate();
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, updateProfileStats } = useAuth();
   
   // Game State
   const [game, setGame] = useState(null);
@@ -33,7 +33,7 @@ const GameArena = () => {
       if (!gameData) return;
 
       setGame(gameData);
-      setAnswer(gameData.word);
+      setAnswer(gameData.word ? gameData.word.toLowerCase() : '');
       if (gameData.status === 'IN_PROGRESS') {
         setGameState('playing');
         startTimer();
@@ -55,10 +55,26 @@ const GameArena = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'game_participants', filter: `game_id=eq.${gameId}` }, () => refreshParticipants())
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` }, (payload) => {
         setGame(payload.new);
+        if (payload.new.word) setAnswer(payload.new.word.toLowerCase());
         if (payload.new.status === 'FINISHED' && gameState === 'playing') {
             setGameState('finished');
             clearInterval(timerRef.current);
             showMessage('MATCH TERMINATED', -1);
+            
+            // Penalize this player if they hadn't finished when the match terminated
+            if (userProfile && updateProfileStats) {
+               const currentRP = userProfile.multiplayer_elo || 0;
+               const change = -(15 + Math.floor(currentRP / 200));
+               
+               const newTotal = (userProfile.total_matches || 0) + 1;
+               const newWins = userProfile.wins || 0;
+               updateProfileStats({
+                  multiplayer_elo: Math.max(0, currentRP + change),
+                  total_matches: newTotal,
+                  win_rate: newTotal > 0 ? (newWins / newTotal) * 100 : 0,
+                  current_win_streak: 0
+               });
+            }
         }
       })
       .subscribe();
@@ -100,6 +116,36 @@ const GameArena = () => {
 
     if (status === 'won') {
         await supabase.from('games').update({ status: 'FINISHED', finished_at: new Date().toISOString() }).eq('id', gameId);
+    }
+    
+    // Apply Multiplayer ELO if game ended locally for this user
+    if ((status === 'won' || status === 'lost') && userProfile && updateProfileStats) {
+       const isWin = status === 'won';
+       const newTotalMatches = (userProfile.total_matches || 0) + 1;
+       const newWins = isWin ? (userProfile.wins || 0) + 1 : (userProfile.wins || 0);
+       const newWinStreak = isWin ? (userProfile.current_win_streak || 0) + 1 : 0;
+       
+       const currentRP = userProfile.multiplayer_elo || 0;
+       let change = 0;
+       if (isWin) {
+         const K = currentRP < 1000 ? 50 : 25;
+         const multipliers = [2.0, 1.5, 1.2, 1.0, 0.8, 0.6];
+         const mult = multipliers[rowIndex] || 0.5;
+         change = Math.max(5, Math.floor(K * mult));
+       } else {
+         const baseLoss = 15;
+         const rankPenalty = Math.floor(currentRP / 200);
+         change = -(baseLoss + rankPenalty);
+       }
+       
+       updateProfileStats({
+         total_matches: newTotalMatches,
+         wins: newWins,
+         win_rate: (newTotalMatches > 0 ? (newWins / newTotalMatches) * 100 : 0),
+         current_win_streak: newWinStreak,
+         max_win_streak: Math.max(newWinStreak, userProfile.max_win_streak || 0),
+         multiplayer_elo: Math.max(0, currentRP + change)
+       });
     }
   };
 

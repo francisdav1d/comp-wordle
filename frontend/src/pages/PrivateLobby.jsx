@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { allWords } from '../lib/words';
 
 const PrivateLobby = () => {
     const { lobbyId } = useParams();
@@ -26,7 +27,7 @@ const PrivateLobby = () => {
         };
         const cleanup = subscribeToLobby();
         return () => cleanup();
-    }, [lobbyId]);
+    }, [lobbyId, navigate]);
 
     const fetchLobby = async () => {
         const { data } = await supabase.from('games').select('*').eq('id', lobbyId).single();
@@ -41,11 +42,12 @@ const PrivateLobby = () => {
 
     const handleStart = async () => {
         setIsStarting(true);
-        // Set word and start
-        const { data: wordData } = await supabase.from('words').select('word').order('random()').limit(1).single();
+        // Select a true random word locally from the massive dictionary array
+        const secureRandomWord = allWords[Math.floor(Math.random() * allWords.length)];
+        
         await supabase.from('games').update({ 
             status: 'IN_PROGRESS', 
-            word: wordData?.word || 'APPLE',
+            word: secureRandomWord.toLowerCase(),
             started_at: new Date().toISOString()
         }).eq('id', lobbyId);
     };
