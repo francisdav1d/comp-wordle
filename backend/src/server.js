@@ -369,19 +369,45 @@ app.get('/api/leaderboard', async (request, response, next) => {
 app.get('/api/init-app', async (request, response, next) => {
   try {
     const userId = request.user.id
-    console.log(`🔍 Starting parallel fetch for user: ${userId}`)
+    console.log(`🔍 Starting initialization for user: ${userId}`)
     
-    const dbStart = Date.now()
-    // Run everything in parallel on the server
-    const [profile, leaderboard, activeGames] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', userId).single(),
+    // 1. Try to get the profile
+    let { data: profile, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
+
+    // 2. If profile doesn't exist (new user!), create it now!
+    if (error && error.code === 'PGRST116') {
+      console.log(`🆕 New operative detected! Creating profile for: ${userId}`)
+      const newProfile = {
+        id: userId,
+        username: request.user.user_metadata?.username || request.user.email.split('@')[0].toLowerCase(),
+        multiplayer_elo: 0,
+        single_player_elo: 0,
+        tier: 'Bronze',
+        wins: 0,
+        total_matches: 0,
+        avatar_url: `https://ui-avatars.com/api/?name=${request.user.email}&background=random`
+      }
+      
+      const { data: created, error: createError } = await supabase
+        .from('profiles')
+        .insert(newProfile)
+        .select()
+        .single()
+      
+      if (createError) throw createError
+      profile = created
+    } else if (error) {
+      throw error
+    }
+
+    // 3. Fetch the rest of the app data in parallel
+    const [leaderboard, activeGames] = await Promise.all([
       supabase.from('profiles').select('id, username, avatar_url, multiplayer_elo').order('multiplayer_elo', { ascending: false }).limit(10),
       supabase.from('game_participants').select('id, game_id, games(status, mode)').eq('user_id', userId)
     ])
-    console.log(`⏱️ DB Parallel Fetch took: ${Date.now() - dbStart}ms`)
 
     response.json({
-      profile: profile.data,
+      profile: profile,
       leaderboard: leaderboard.data ?? [],
       activeGames: activeGames.data ?? []
     })
