@@ -9,8 +9,8 @@ CREATE TABLE public.profiles (
   email TEXT,
   
   -- Competitive ELO
-  single_player_elo INTEGER DEFAULT 1000,
-  multiplayer_elo INTEGER DEFAULT 1000,
+  single_player_elo INTEGER DEFAULT 0,
+  multiplayer_elo INTEGER DEFAULT 0,
   tier TEXT DEFAULT 'Bronze',
   
   -- Match Stats
