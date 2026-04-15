@@ -38,7 +38,7 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Design Assets
-design/
+1design/
 designs_raw/
 *.png
 *.jpg
@@ -47,5 +47,9 @@ designs_raw/
 !frontend/src/assets/**/*
 !frontend/public/**/*
 
-actuall_wordle/
-old_compwordle/
+a_wordle_folder/
+a_wordle_folder/comp_wordle_design
+a_wordle_folder/nytimes_wordle
+a_wordle_folder/old_comp_wordle
+
+backend/.env
