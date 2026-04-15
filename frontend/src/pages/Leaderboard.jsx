@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { generateLeaderboardData } from '../utils/LeaderboardData';
+import { getLeaderboard } from '../lib/api';
 
 const Leaderboard = () => {
   const [category, setCategory] = useState('global');
@@ -16,18 +17,16 @@ const Leaderboard = () => {
         if (active) setLoading(false);
         return;
       }
-      
-      const orderColumn = gameMode === 'multiplayer' ? 'multiplayer_elo' : 'single_player_elo';
-      
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order(orderColumn, { ascending: false })
-        .limit(30);
-        
-      if (!error && data && active) {
-        setRealPlayers(data);
+
+      try {
+        const { players } = await getLeaderboard(gameMode);
+        if (active) {
+          setRealPlayers(players);
+        }
+      } catch (error) {
+        console.error('Failed to load leaderboard:', error);
       }
+
       if (active) setLoading(false);
     };
 

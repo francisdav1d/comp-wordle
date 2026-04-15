@@ -13,8 +13,6 @@ import GameArena from './pages/GameArena';
 import Profile from './pages/Profile';
 import Social from './pages/Social';
 import Leaderboard from './pages/Leaderboard';
-import { Analytics } from "@vercel/analytics/next"
-
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();

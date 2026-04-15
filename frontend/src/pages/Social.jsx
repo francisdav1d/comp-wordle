@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { createPrivateLobby, joinPrivateLobby } from '../lib/api';
 
 const Social = () => {
   const navigate = useNavigate();
@@ -21,9 +21,7 @@ const Social = () => {
     if (!user || isProcessing) return;
     setIsProcessing(true);
     try {
-        const { data, error } = await supabase.rpc('create_private_lobby', { v_host_id: user.id });
-        if (error) throw error;
-        const gameId = data?.[0]?.game_id || data?.[0]?.v_new_id;
+        const { gameId } = await createPrivateLobby();
         if (gameId) navigate(`/private-lobby/${gameId}`);
     } catch (err) {
         console.error(err);
@@ -36,11 +34,7 @@ const Social = () => {
     if (joinCode.length !== 6 || isProcessing) return;
     setIsProcessing(true);
     try {
-        const { data: gameId, error } = await supabase.rpc('join_private_lobby', { 
-            v_user_id: user.id, 
-            v_code: joinCode.toUpperCase() 
-        });
-        if (error) throw error;
+        const { gameId } = await joinPrivateLobby(joinCode.toUpperCase());
         if (gameId) navigate(`/private-lobby/${gameId}`);
     } catch (err) {
         console.error(err);

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { createPrivateLobby, joinMatchmaking, joinPrivateLobby } from '../lib/api';
 
 const ArenaLobby = () => {
   const navigate = useNavigate();
@@ -18,43 +19,22 @@ const ArenaLobby = () => {
   const handleCreatePrivate = async () => {
     if (!user) return;
     try {
-        console.log('Initiating Lobby Creation...');
-        const { data, error } = await supabase.rpc('create_private_lobby', { v_host_id: user.id });
-        
-        if (error) {
-            console.error('RPC Error:', error);
-            alert(`Lobby Error: ${error.message}`);
-            return;
-        }
-
-        // Robust check for the returned game_id
-        const gameId = data?.[0]?.game_id || data?.[0]?.v_new_id;
-        
+        const { gameId } = await createPrivateLobby();
         if (gameId) {
-            console.log('Lobby Created! Redirecting to:', gameId);
             navigate(`/private-lobby/${gameId}`);
         } else {
-            console.error('No Game ID returned from RPC:', data);
             alert('Failed to retrieve Lobby ID from server.');
         }
     } catch (err) {
-        console.error('Client Side Error:', err);
+        console.error('Lobby creation error:', err);
+        alert(err.message);
     }
   };
 
   const handleJoinPrivate = async () => {
     if (joinCode.length !== 6) return;
     try {
-        const { data: gameId, error } = await supabase.rpc('join_private_lobby', { 
-            v_user_id: user.id, 
-            v_code: joinCode.toUpperCase() 
-        });
-        
-        if (error) {
-            alert(`Join Error: ${error.message}`);
-            return;
-        }
-        
+        const { gameId } = await joinPrivateLobby(joinCode.toUpperCase());
         if (gameId) {
             navigate(`/private-lobby/${gameId}`);
         } else {
@@ -62,6 +42,7 @@ const ArenaLobby = () => {
         }
     } catch (err) {
         console.error('Join Error:', err);
+        alert(err.message);
     }
   };
 
@@ -70,10 +51,8 @@ const ArenaLobby = () => {
     setSearchMode(mode);
     setIsSearching(true);
     try {
-      const { data: gameId, error } = await supabase.rpc('join_matchmaking', { v_user_id: user.id, v_mode: mode });
-      if (error) throw error;
-      const { data: gameData } = await supabase.from('games').select('status').eq('id', gameId).single();
-      if (gameData?.status === 'IN_PROGRESS') {
+      const { gameId, status } = await joinMatchmaking(mode);
+      if (status === 'IN_PROGRESS') {
           navigate(`/game-room/${gameId}`);
           return;
       }
@@ -86,6 +65,7 @@ const ArenaLobby = () => {
         }).subscribe();
     } catch (err) {
       console.error('Matchmaking error:', err);
+      alert(err.message);
       setIsSearching(false);
     }
   };

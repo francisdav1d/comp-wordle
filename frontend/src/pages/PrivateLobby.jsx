@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { allWords } from '../lib/words';
+import { getGame, getGameParticipants, startGame } from '../lib/api';
 
 const PrivateLobby = () => {
     const { lobbyId } = useParams();
@@ -30,26 +30,37 @@ const PrivateLobby = () => {
     }, [lobbyId, navigate]);
 
     const fetchLobby = async () => {
-        const { data } = await supabase.from('games').select('*').eq('id', lobbyId).single();
-        if (data) setGame(data);
-        fetchParticipants();
+        try {
+            const [{ game }, { participants }] = await Promise.all([
+                getGame(lobbyId),
+                getGameParticipants(lobbyId),
+            ]);
+
+            setGame(game);
+            setParticipants(participants);
+        } catch (err) {
+            console.error('Failed to load private lobby:', err);
+        }
     };
 
     const fetchParticipants = async () => {
-        const { data } = await supabase.from('game_participants').select('*, profiles(username, avatar_url)').eq('game_id', lobbyId);
-        if (data) setParticipants(data);
+        try {
+            const { participants } = await getGameParticipants(lobbyId);
+            setParticipants(participants);
+        } catch (err) {
+            console.error('Failed to refresh participants:', err);
+        }
     };
 
     const handleStart = async () => {
         setIsStarting(true);
-        // Select a true random word locally from the massive dictionary array
-        const secureRandomWord = allWords[Math.floor(Math.random() * allWords.length)];
-        
-        await supabase.from('games').update({ 
-            status: 'IN_PROGRESS', 
-            word: secureRandomWord.toLowerCase(),
-            started_at: new Date().toISOString()
-        }).eq('id', lobbyId);
+        try {
+            await startGame(lobbyId);
+        } catch (err) {
+            console.error('Failed to start lobby:', err);
+            alert(err.message);
+            setIsStarting(false);
+        }
     };
 
     const isHost = game?.host_id === user?.id;

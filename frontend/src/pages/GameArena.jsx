@@ -3,17 +3,17 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { LetterState } from '../lib/wordleTypes';
-import { allWords } from '../lib/words';
+import { getGame, getGameParticipants, submitGuess } from '../lib/api';
 
 const GameArena = () => {
   const { gameId } = useParams();
   const navigate = useNavigate();
-  const { user, userProfile, updateProfileStats } = useAuth();
+  const { user, userProfile } = useAuth();
   
   // Game State
   const [game, setGame] = useState(null);
   const [participants, setParticipants] = useState([]);
-  const [answer, setAnswer] = useState('');
+  const [revealedAnswer, setRevealedAnswer] = useState('');
   
   // Board State
   const [board, setBoard] = useState(Array.from({ length: 6 }, () => Array.from({ length: 5 }, () => ({ letter: '', state: LetterState.INITIAL }))));
@@ -29,18 +29,24 @@ const GameArena = () => {
     const fetchGameData = async () => {
       if (!gameId) return;
 
-      const { data: gameData } = await supabase.from('games').select('*').eq('id', gameId).single();
-      if (!gameData) return;
+      try {
+        const [{ game: gameData }, { participants: partData }] = await Promise.all([
+          getGame(gameId),
+          getGameParticipants(gameId),
+        ]);
 
-      setGame(gameData);
-      setAnswer(gameData.word ? gameData.word.toLowerCase() : '');
-      if (gameData.status === 'IN_PROGRESS') {
-        setGameState('playing');
-        startTimer();
+        if (!gameData) return;
+
+        setGame(gameData);
+        if (gameData.status === 'IN_PROGRESS') {
+          setGameState('playing');
+          startTimer();
+        }
+
+        setParticipants(partData || []);
+      } catch (err) {
+        console.error('Failed to load game data:', err);
       }
-
-      const { data: partData } = await supabase.from('game_participants').select('*, profiles(username, avatar_url)').eq('game_id', gameId);
-      if (partData) setParticipants(partData);
     };
 
     fetchGameData();
@@ -55,26 +61,10 @@ const GameArena = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'game_participants', filter: `game_id=eq.${gameId}` }, () => refreshParticipants())
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` }, (payload) => {
         setGame(payload.new);
-        if (payload.new.word) setAnswer(payload.new.word.toLowerCase());
         if (payload.new.status === 'FINISHED' && gameState === 'playing') {
             setGameState('finished');
             clearInterval(timerRef.current);
             showMessage('MATCH TERMINATED', -1);
-            
-            // Penalize this player if they hadn't finished when the match terminated
-            if (userProfile && updateProfileStats) {
-               const currentRP = userProfile.multiplayer_elo || 0;
-               const change = -(15 + Math.floor(currentRP / 200));
-               
-               const newTotal = (userProfile.total_matches || 0) + 1;
-               const newWins = userProfile.wins || 0;
-               updateProfileStats({
-                  multiplayer_elo: Math.max(0, currentRP + change),
-                  total_matches: newTotal,
-                  win_rate: newTotal > 0 ? (newWins / newTotal) * 100 : 0,
-                  current_win_streak: 0
-               });
-            }
         }
       })
       .subscribe();
@@ -86,8 +76,12 @@ const GameArena = () => {
   }, [gameId, gameState]);
 
   const refreshParticipants = async () => {
-    const { data } = await supabase.from('game_participants').select('*, profiles(username, avatar_url)').eq('game_id', gameId);
-    if (data) setParticipants(data);
+    try {
+      const { participants: nextParticipants } = await getGameParticipants(gameId);
+      if (nextParticipants) setParticipants(nextParticipants);
+    } catch (err) {
+      console.error('Failed to refresh participants:', err);
+    }
   };
 
   const startTimer = () => {
@@ -98,55 +92,6 @@ const GameArena = () => {
   const showMessage = (msg, time = 2000) => {
     setMessage(msg);
     if (time > 0) setTimeout(() => setMessage(''), time);
-  };
-
-  const syncProgress = async (newBoard, rowIndex, status) => {
-    const me = participants.find(p => p.user_id === user.id);
-    if (!me) return;
-
-    const lastGuess = newBoard[rowIndex].map(t => t.letter).join('');
-    const lastResult = newBoard[rowIndex].map(t => t.state);
-    const updatedGuesses = [...(me.guesses || []), { guess: lastGuess, result: lastResult }];
-
-    await supabase.from('game_participants').update({ 
-      guesses: updatedGuesses,
-      score: status === 'won' ? 100 : 0,
-      finished_at: status !== 'playing' ? new Date().toISOString() : null
-    }).eq('id', me.id);
-
-    if (status === 'won') {
-        await supabase.from('games').update({ status: 'FINISHED', finished_at: new Date().toISOString() }).eq('id', gameId);
-    }
-    
-    // Apply Multiplayer ELO if game ended locally for this user
-    if ((status === 'won' || status === 'lost') && userProfile && updateProfileStats) {
-       const isWin = status === 'won';
-       const newTotalMatches = (userProfile.total_matches || 0) + 1;
-       const newWins = isWin ? (userProfile.wins || 0) + 1 : (userProfile.wins || 0);
-       const newWinStreak = isWin ? (userProfile.current_win_streak || 0) + 1 : 0;
-       
-       const currentRP = userProfile.multiplayer_elo || 0;
-       let change = 0;
-       if (isWin) {
-         const K = currentRP < 1000 ? 50 : 25;
-         const multipliers = [2.0, 1.5, 1.2, 1.0, 0.8, 0.6];
-         const mult = multipliers[rowIndex] || 0.5;
-         change = Math.max(5, Math.floor(K * mult));
-       } else {
-         const baseLoss = 15;
-         const rankPenalty = Math.floor(currentRP / 200);
-         change = -(baseLoss + rankPenalty);
-       }
-       
-       updateProfileStats({
-         total_matches: newTotalMatches,
-         wins: newWins,
-         win_rate: (newTotalMatches > 0 ? (newWins / newTotalMatches) * 100 : 0),
-         current_win_streak: newWinStreak,
-         max_win_streak: Math.max(newWinStreak, userProfile.max_win_streak || 0),
-         multiplayer_elo: Math.max(0, currentRP + change)
-       });
-    }
   };
 
   const onKey = useCallback(async (key) => {
@@ -170,38 +115,47 @@ const GameArena = () => {
     } else if (key === 'Enter') {
       const row = board[currentRowIndex];
       const guess = row.map(t => t.letter).join('');
-      if (guess.length !== 5 || !allWords.includes(guess)) { showMessage(guess.length !== 5 ? 'TOO SHORT' : 'NOT IN LIST'); return; }
+      if (guess.length !== 5) { showMessage('TOO SHORT'); return; }
 
-      const newBoard = JSON.parse(JSON.stringify(board));
-      const newLetterStates = { ...letterStates };
-      const currentBoardRow = newBoard[currentRowIndex];
-      const answerLetters = answer.split('');
+      try {
+        const payload = await submitGuess(gameId, guess);
+        const newBoard = JSON.parse(JSON.stringify(board));
+        const newLetterStates = { ...letterStates };
+        const currentBoardRow = newBoard[currentRowIndex];
 
-      currentBoardRow.forEach((tile, i) => { if (tile.letter === answerLetters[i]) { tile.state = LetterState.CORRECT; newLetterStates[tile.letter] = LetterState.CORRECT; answerLetters[i] = null; } });
-      currentBoardRow.forEach((tile, i) => { if (tile.state !== LetterState.CORRECT && answerLetters.includes(tile.letter)) { tile.state = LetterState.PRESENT; if (newLetterStates[tile.letter] !== LetterState.CORRECT) newLetterStates[tile.letter] = LetterState.PRESENT; answerLetters[answerLetters.indexOf(tile.letter)] = null; } });
-      currentBoardRow.forEach((tile) => { if (tile.state === LetterState.INITIAL) { tile.state = LetterState.ABSENT; if (!newLetterStates[tile.letter]) newLetterStates[tile.letter] = LetterState.ABSENT; } });
+        currentBoardRow.forEach((tile, index) => {
+          tile.state = payload.result[index] || LetterState.ABSENT;
+          const nextState = payload.result[index];
+          if (nextState === LetterState.CORRECT) {
+            newLetterStates[tile.letter] = LetterState.CORRECT;
+          } else if (nextState === LetterState.PRESENT && newLetterStates[tile.letter] !== LetterState.CORRECT) {
+            newLetterStates[tile.letter] = LetterState.PRESENT;
+          } else if (!newLetterStates[tile.letter]) {
+            newLetterStates[tile.letter] = LetterState.ABSENT;
+          }
+        });
 
-      setBoard(newBoard);
-      setLetterStates(newLetterStates);
+        setBoard(newBoard);
+        setLetterStates(newLetterStates);
+        setRevealedAnswer(payload.answer || '');
+        refreshParticipants();
 
-      let status = 'playing';
-      if (guess === answer) {
-        status = 'won';
-        setGameState('won');
-        clearInterval(timerRef.current);
-        showMessage('VICTORY!', -1);
-      } else if (currentRowIndex >= 5) {
-        status = 'lost';
-        setGameState('lost');
-        clearInterval(timerRef.current);
-        showMessage(answer.toUpperCase(), -1);
-      } else {
-        setCurrentRowIndex(prev => prev + 1);
+        if (payload.participantStatus === 'won') {
+          setGameState('won');
+          clearInterval(timerRef.current);
+          showMessage('VICTORY!', -1);
+        } else if (payload.participantStatus === 'lost') {
+          setGameState('lost');
+          clearInterval(timerRef.current);
+          showMessage((payload.answer || '').toUpperCase(), -1);
+        } else {
+          setCurrentRowIndex(prev => prev + 1);
+        }
+      } catch (err) {
+        showMessage(err.message.toUpperCase());
       }
-
-      syncProgress(newBoard, currentRowIndex, status);
     }
-  }, [board, currentRowIndex, gameState, answer, letterStates, participants, user.id]);
+  }, [board, currentRowIndex, gameId, gameState, letterStates]);
 
   useEffect(() => {
     const handleKeyDown = (e) => onKey(e.key);
@@ -210,6 +164,7 @@ const GameArena = () => {
   }, [onKey]);
 
   const isFinished = gameState === 'won' || gameState === 'lost' || gameState === 'finished';
+  const finalMessage = gameState === 'won' ? 'VICTORY' : gameState === 'lost' ? 'DEFEATED' : 'MATCH CLOSED';
 
   return (
     <main className="flex-grow grid grid-cols-1 lg:grid-cols-12 gap-0 lg:overflow-hidden relative">
@@ -276,7 +231,8 @@ const GameArena = () => {
               <div className="bg-[#1c1c1d] border border-white/5 p-8 rounded-2xl text-center space-y-6 animate-in fade-in zoom-in duration-300">
                   <div>
                     <h3 className="text-[10px] font-bold text-primary tracking-[0.3em] uppercase mb-1">Match Concluded</h3>
-                    <p className="text-4xl font-black text-white uppercase tracking-tighter">{gameState === 'won' ? 'VICTORY' : 'DEFEATED'}</p>
+                     <p className="text-4xl font-black text-white uppercase tracking-tighter">{finalMessage}</p>
+                     {revealedAnswer && gameState === 'lost' ? <p className="mt-2 text-xs font-bold tracking-[0.2em] text-white/50">ANSWER {revealedAnswer}</p> : null}
                   </div>
                   <div className="flex gap-4 items-center justify-center">
                     <button onClick={() => navigate('/arena')} className="px-8 py-3 bg-primary text-[#131314] font-bold text-xs uppercase tracking-widest rounded-lg transition-transform hover:scale-105 active:scale-95">Play Again</button>
