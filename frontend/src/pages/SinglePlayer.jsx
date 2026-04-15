@@ -3,6 +3,34 @@ import { useAuth } from '../context/AuthContext';
 import { getRandomWord, allWords } from '../lib/words';
 import { LetterState } from '../lib/wordleTypes';
 
+const WIN_PERFORMANCE_RATINGS = [1850, 1680, 1520, 1380, 1260, 1160];
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getSinglePlayerKFactor(rating) {
+  if (rating < 800) return 40;
+  if (rating < 1200) return 32;
+  if (rating < 1600) return 24;
+  return 18;
+}
+
+function calculateSinglePlayerRatingChange({ currentRating, isWin, guessIndex, solveTime }) {
+  const performanceBase = isWin ? (WIN_PERFORMANCE_RATINGS[guessIndex] || 1100) : 700;
+  const speedAdjustment = isWin ? clamp(Math.round((90 - solveTime) * 2), -80, 120) : 0;
+  const performanceRating = performanceBase + speedAdjustment;
+  const expectedScore = 1 / (1 + 10 ** ((performanceRating - currentRating) / 400));
+  const actualScore = isWin ? 1 : 0;
+  const rawChange = Math.round(getSinglePlayerKFactor(currentRating) * (actualScore - expectedScore));
+
+  if (isWin) {
+    return clamp(rawChange, 4, 36);
+  }
+
+  return clamp(rawChange, -28, -6);
+}
+
 const SinglePlayer = () => {
   const { userProfile, updateProfileStats } = useAuth();
   const [answer, setAnswer] = useState(() => getRandomWord());
@@ -69,6 +97,7 @@ const SinglePlayer = () => {
 
   const saveStats = async (finalState, finalRowIndex, solveTime) => {
     if (!userProfile) return;
+
     const isWin = finalState === 'won';
     const newTotalMatches = (userProfile.total_matches || 0) + 1;
     const newWins = isWin ? (userProfile.wins || 0) + 1 : (userProfile.wins || 0);
@@ -79,25 +108,6 @@ const SinglePlayer = () => {
       const guessNum = (finalRowIndex + 1).toString();
       newDist[guessNum] = (newDist[guessNum] || 0) + 1;
     }
-    // Daily Streak Logic
-    const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
-    const lastPlayedStr = userProfile.last_played_date;
-    let newDailyStreak = userProfile.current_daily_streak || 0;
-
-    if (!lastPlayedStr) {
-      newDailyStreak = 1;
-    } else if (lastPlayedStr !== todayStr) {
-      const lastDate = new Date(lastPlayedStr + 'T00:00:00');
-      const todayDate = new Date(todayStr + 'T00:00:00');
-      const diffDays = Math.round((todayDate - lastDate) / (1000 * 60 * 60 * 24));
-
-      if (diffDays === 1) {
-        newDailyStreak += 1;
-      } else {
-        newDailyStreak = 1;
-      }
-    }
-    const newMaxDailyStreak = Math.max(newDailyStreak, userProfile.max_daily_streak || 0);
 
     let newAvgTime = userProfile.avg_solve_time || 0;
     if (isWin) {
@@ -108,28 +118,18 @@ const SinglePlayer = () => {
     let change = 0;
 
     if (isRated) {
-      const currentRP = userProfile.single_player_elo || 0;
-      if (isWin) {
-        // Higher K-factor (50) for lower ranks to help climbing, lower (25) for high ranks
-        const K = currentRP < 1000 ? 50 : 25;
-        // Accuracy multiplier based on guess count
-        const multipliers = [2.0, 1.5, 1.2, 1.0, 0.8, 0.6];
-        const mult = multipliers[finalRowIndex] || 0.5;
-        change = Math.max(5, Math.floor(K * mult));
-      } else {
-        // Loss scales with rank: -15 at low ranks, increases as you climb
-        const baseLoss = 15;
-        const rankPenalty = Math.floor(currentRP / 200);
-        change = -(baseLoss + rankPenalty);
-      }
-      nextRating = Math.max(0, currentRP + change);
+      const currentRating = userProfile.single_player_elo || 0;
+      change = calculateSinglePlayerRatingChange({
+        currentRating,
+        isWin,
+        guessIndex: finalRowIndex,
+        solveTime,
+      });
+      nextRating = Math.max(0, currentRating + change);
       setRatingChange(change);
     }
 
-    const newDailyActivity = { ...(userProfile.daily_activity || {}) };
-    newDailyActivity[todayStr] = (newDailyActivity[todayStr] || 0) + 1;
-
-    await updateProfileStats({
+    const statsUpdate = {
       total_matches: newTotalMatches,
       wins: newWins,
       win_rate: (newTotalMatches > 0 ? (newWins / newTotalMatches) * 100 : 0),
@@ -138,11 +138,13 @@ const SinglePlayer = () => {
       guess_distribution: newDist,
       avg_solve_time: newAvgTime,
       single_player_elo: nextRating,
-      current_daily_streak: newDailyStreak,
-      max_daily_streak: newMaxDailyStreak,
-      last_played_date: todayStr,
-      daily_activity: newDailyActivity
-    });
+    };
+
+    const { error } = await updateProfileStats(statsUpdate);
+    if (error) {
+      console.error('Single-player stats update failed:', error);
+      setRatingChange(null);
+    }
   };
 
   const showMessage = (msg, time = 2000) => {

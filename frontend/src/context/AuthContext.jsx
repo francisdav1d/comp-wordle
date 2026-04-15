@@ -68,8 +68,13 @@ export const AuthProvider = ({ children }) => {
       .eq('id', user.id)
       .select()
       .single();
-    
-    if (!error && data) {
+
+    if (error) {
+      console.error('Error updating profile stats:', error);
+      return { data: null, error };
+    }
+
+    if (data) {
       setUserProfile(data);
     }
     return { data, error };
