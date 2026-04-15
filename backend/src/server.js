@@ -133,12 +133,14 @@ async function requireAuth(request, _response, next) {
 }
 
 async function getRandomWord() {
-  if (!wordList.length) {
-    await refreshWordCache()
+  if (wordCache.size > 0) {
+    const wordsArray = Array.from(wordCache)
+    return wordsArray[Math.floor(Math.random() * wordsArray.length)]
   }
 
-  if (!wordList.length) return 'alert'
-  return wordList[Math.floor(Math.random() * wordList.length)]
+  const words = await getWords();
+  if (!words.length) return 'alert'
+  return words[Math.floor(Math.random() * words.length)]
 }
 
 async function getProfile(userId) {
