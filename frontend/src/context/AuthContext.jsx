@@ -40,53 +40,17 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfile = async (uid) => {
-    if (!supabase) return;
+  const fetchProfile = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', uid)
-        .single();
+      const { initApp } = await import('../lib/api');
+      const data = await initApp();
       
-      if (error && error.code === 'PGRST116') {
-        const { data: userData } = await supabase.auth.getUser();
-        const user = userData.user;
-        
-        if (!user) return;
-
-        const newProfile = {
-          id: uid,
-          display_name: user.user_metadata?.username || user.email.split('@')[0],
-          username: user.user_metadata?.username || user.email.split('@')[0].toLowerCase(),
-          email: user.email,
-          avatar_url: `https://ui-avatars.com/api/?name=${user.email}&background=94d78c&color=131314`,
-          single_player_elo: 0,
-          multiplayer_elo: 0,
-          tier: 'Bronze',
-          wins: 0,
-          total_matches: 0,
-          current_daily_streak: 0,
-          max_daily_streak: 0,
-          current_win_streak: 0,
-          max_win_streak: 0,
-          avg_solve_time: 0,
-          guess_distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0 },
-          created_at: new Date().toISOString(),
-        };
-
-        const { data: createdProfile, error: createError } = await supabase
-          .from('profiles')
-          .insert([newProfile])
-          .select()
-          .single();
-          
-        if (!createError) setUserProfile(createdProfile);
-      } else if (data) {
-        setUserProfile(data);
+      if (data.profile) {
+        setUserProfile(data.profile);
+        // We could also store leaderboard/games here if we add them to the context
       }
     } catch (err) {
-      console.error('Error in profile lifecycle:', err);
+      console.error('Error fetching optimized profile:', err);
     } finally {
       setLoading(false);
     }

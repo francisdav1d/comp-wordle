@@ -78,3 +78,7 @@ export function getGameParticipants(gameId) {
 export function getLeaderboard(mode) {
   return request(`/api/leaderboard?mode=${mode}`)
 }
+
+export function initApp() {
+  return request('/api/init-app')
+}

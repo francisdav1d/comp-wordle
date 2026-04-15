@@ -22,6 +22,27 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   },
 })
 
+// PERFORMANCE CACHE: Load words into memory to avoid repeated DB calls
+let wordCache = new Set()
+async function refreshWordCache() {
+  const { data } = await supabase.from('words').select('word')
+  if (data) {
+    wordCache = new Set(data.map(w => w.word.toLowerCase()))
+    console.log(`🚀 Cached ${wordCache.size} words for instant lookup.`)
+  }
+}
+refreshWordCache()
+
+let cachedWords = null;
+
+async function getWords() {
+  if (cachedWords) return cachedWords;
+  const { data, error } = await supabase.from('words').select('word');
+  if (error) throw createHttpError(500, error.message);
+  cachedWords = data?.map(w => w.word.toLowerCase()) || [];
+  return cachedWords;
+}
+
 const app = express()
 
 const allowedOrigins = [FRONTEND_URL, 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175']
@@ -36,6 +57,16 @@ app.use(cors({
   credentials: true 
 }))
 app.use(express.json())
+
+// SPEED LOGGER: See exactly how long each request takes
+app.use((req, res, next) => {
+  const start = Date.now()
+  res.on('finish', () => {
+    const duration = Date.now() - start
+    console.log(`⏱️ ${req.method} ${req.originalUrl} - ${duration}ms`)
+  })
+  next()
+})
 
 function createHttpError(status, message) {
   const error = new Error(message)
@@ -67,8 +98,12 @@ function generateLobbyCode() {
   return Array.from({ length: 6 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join('')
 }
 
+// AUTH CACHE: Remembers users for 5 minutes to avoid redundant server calls
+const authCache = new Map()
+
 async function requireAuth(request, _response, next) {
   try {
+    const authStart = Date.now()
     const authorization = request.headers.authorization || ''
     const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : null
 
@@ -76,12 +111,24 @@ async function requireAuth(request, _response, next) {
       throw createHttpError(401, 'Missing bearer token.')
     }
 
+    // Check if we already verified this token recently
+    const cached = authCache.get(token)
+    if (cached && (Date.now() - cached.timestamp < 5 * 60 * 1000)) {
+      request.user = cached.user
+      console.log(`⚡ Auth CACHE HIT! Save: ${Date.now() - authStart}ms`)
+      return next()
+    }
+
     const { data, error } = await supabase.auth.getUser(token)
+    console.log(`🔒 Auth verification took: ${Date.now() - authStart}ms`)
 
     if (error || !data.user) {
       throw createHttpError(401, 'Invalid access token.')
     }
 
+    // Save to cache
+    authCache.set(token, { user: data.user, timestamp: Date.now() })
+    
     request.user = data.user
     next()
   } catch (error) {
@@ -90,18 +137,9 @@ async function requireAuth(request, _response, next) {
 }
 
 async function getRandomWord() {
-  const { data, error } = await supabase.from('words').select('word').limit(500)
-
-  if (error) {
-    throw createHttpError(500, error.message)
-  }
-
-  if (!data?.length) {
-    return 'alert'
-  }
-
-  const randomEntry = data[Math.floor(Math.random() * data.length)]
-  return randomEntry.word.toLowerCase()
+  const words = await getWords();
+  if (!words.length) return 'alert';
+  return words[Math.floor(Math.random() * words.length)];
 }
 
 async function getProfile(userId) {
@@ -227,32 +265,20 @@ async function getParticipants(gameId) {
 }
 
 async function findActivePublicGameForUser(userId, mode) {
-  const { data: memberships, error } = await supabase
-    .from('game_participants')
-    .select('game_id')
-    .eq('user_id', userId)
+  const { data: game, error } = await supabase
+    .from('games')
+    .select('id, status, mode, is_private')
+    .eq('mode', mode)
+    .eq('is_private', false)
+    .in('status', ['PENDING', 'IN_PROGRESS'])
+    .eq('game_participants.user_id', userId)
+    .maybeSingle();
 
   if (error) {
-    throw createHttpError(500, error.message)
+    throw createHttpError(500, error.message);
   }
 
-  for (const membership of memberships ?? []) {
-    const { data: game, error: gameError } = await supabase
-      .from('games')
-      .select('id, status, mode, is_private')
-      .eq('id', membership.game_id)
-      .maybeSingle()
-
-    if (gameError) {
-      throw createHttpError(500, gameError.message)
-    }
-
-    if (game && !game.is_private && game.mode === mode && ['PENDING', 'IN_PROGRESS'].includes(game.status)) {
-      return game
-    }
-  }
-
-  return null
+  return game;
 }
 
 app.get('/health', (_request, response) => {
@@ -295,6 +321,31 @@ app.get('/api/leaderboard', async (request, response, next) => {
   }
 })
 
+// SUPER ENDPOINT: Get everything for the initial load in ONE trip
+app.get('/api/init-app', async (request, response, next) => {
+  try {
+    const userId = request.user.id
+    console.log(`🔍 Starting parallel fetch for user: ${userId}`)
+    
+    const dbStart = Date.now()
+    // Run everything in parallel on the server
+    const [profile, leaderboard, activeGames] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', userId).single(),
+      supabase.from('profiles').select('id, username, avatar_url, multiplayer_elo').order('multiplayer_elo', { ascending: false }).limit(10),
+      supabase.from('game_participants').select('id, game_id, games(status, mode)').eq('user_id', userId)
+    ])
+    console.log(`⏱️ DB Parallel Fetch took: ${Date.now() - dbStart}ms`)
+
+    response.json({
+      profile: profile.data,
+      leaderboard: leaderboard.data ?? [],
+      activeGames: activeGames.data ?? []
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
 app.post('/api/matchmaking/join', async (request, response, next) => {
   try {
     const { mode } = request.body
@@ -319,12 +370,16 @@ app.post('/api/matchmaking/join', async (request, response, next) => {
       throw createHttpError(500, pendingError.message)
     }
 
-    let targetGame = null
+    let targetGame = null;
     for (const game of pendingGames ?? []) {
-      const currentParticipants = await getParticipants(game.id)
-      if (currentParticipants.length < game.player_limit) {
-        targetGame = game
-        break
+      const { count } = await supabase
+        .from('game_participants')
+        .select('*', { count: 'exact', head: true })
+        .eq('game_id', game.id);
+
+      if (count < game.player_limit) {
+        targetGame = game;
+        break;
       }
     }
 
@@ -519,46 +574,23 @@ app.post('/api/games/:gameId/guess', async (request, response, next) => {
 
     const { gameId } = request.params
     const userId = request.user.id
-    const { data: game, error: gameError } = await supabase
-      .from('games')
-      .select('id, word, status, finished_at')
-      .eq('id', gameId)
-      .single()
 
-    if (gameError) {
-      throw createHttpError(500, gameError.message)
-    }
+    // OPTIMIZATION: Check Game and Participant in parallel
+    const [gameResult, participantResult] = await Promise.all([
+      supabase.from('games').select('id, word, status, finished_at').eq('id', gameId).single(),
+      supabase.from('game_participants').select('*').eq('game_id', gameId).eq('user_id', userId).single()
+    ])
 
-    if (game.status !== 'IN_PROGRESS') {
-      throw createHttpError(409, 'This game is not in progress.')
-    }
+    const { data: game, error: gameError } = gameResult
+    const { data: participant, error: participantError } = participantResult
 
-    const { data: participant, error: participantError } = await supabase
-      .from('game_participants')
-      .select('*')
-      .eq('game_id', gameId)
-      .eq('user_id', userId)
-      .single()
+    if (gameError) throw createHttpError(500, gameError.message)
+    if (participantError || !participant) throw createHttpError(403, 'You are not part of this game.')
+    if (game.status !== 'IN_PROGRESS') throw createHttpError(409, 'This game is not in progress.')
+    if (participant.finished_at) throw createHttpError(409, 'Your match is already complete.')
 
-    if (participantError) {
-      throw createHttpError(403, 'You are not part of this game.')
-    }
-
-    if (participant.finished_at) {
-      throw createHttpError(409, 'Your match is already complete.')
-    }
-
-    const { data: allowedWord, error: allowedWordError } = await supabase
-      .from('words')
-      .select('word')
-      .eq('word', guess)
-      .maybeSingle()
-
-    if (allowedWordError) {
-      throw createHttpError(500, allowedWordError.message)
-    }
-
-    if (!allowedWord) {
+    // INSTANT CHECK: Use the memory cache instead of a SQL query
+    if (!wordCache.has(guess)) {
       throw createHttpError(400, 'Guess is not in the word list.')
     }
 
