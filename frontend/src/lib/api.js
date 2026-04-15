@@ -82,3 +82,7 @@ export function getLeaderboard(mode) {
 export function initApp() {
   return request('/api/init-app')
 }
+
+export function getProfileByUsername(username) {
+  return request(`/api/profiles/${username}`)
+}

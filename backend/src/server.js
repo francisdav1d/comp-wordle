@@ -329,6 +329,26 @@ app.get('/health', (_request, response) => {
   response.json({ ok: true })
 })
 
+// PUBLIC: Get profile by username
+app.get('/api/profiles/:username', async (request, response, next) => {
+  try {
+    const { username } = request.params
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('username, avatar_url, multiplayer_elo, single_player_elo, tier, wins, total_matches, current_win_streak, max_win_streak, guess_distribution, created_at')
+      .eq('username', username)
+      .single()
+
+    if (error || !data) {
+      throw createHttpError(404, 'User not found.')
+    }
+
+    response.json({ profile: data })
+  } catch (error) {
+    next(error)
+  }
+})
+
 app.use('/api', requireAuth)
 
 app.get('/api/games/:gameId', async (request, response, next) => {

@@ -12,6 +12,7 @@ const Header = () => {
     { name: 'Arena', path: '/arena' },
     { name: 'Social', path: '/social' },
     { name: 'Leaderboard', path: '/leaderboard' },
+    { name: 'World Chat', path: '/world-chat' },
   ];
 
   return (

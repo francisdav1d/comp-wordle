@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { generateLeaderboardData } from '../utils/LeaderboardData';
+import { Link, useNavigate } from 'react-router-dom';
 
 const Leaderboard = () => {
+  const navigate = useNavigate();
   const [category, setCategory] = useState('global');
   const [gameMode, setGameMode] = useState('singleplayer');
   const [realPlayers, setRealPlayers] = useState([]);
@@ -70,6 +72,7 @@ const Leaderboard = () => {
             trend: p.current_win_streak || 0,
             trendDir: p.current_win_streak > 0 ? 'up' : 'flat',
             img: p.avatar_url || `https://api.dicebear.com/9.x/avataaars/svg?seed=${p.username}`,
+            username: p.username,
             streak: p.current_daily_streak || 0
         };
     });
@@ -120,7 +123,11 @@ const Leaderboard = () => {
         {/* Rank 2 */}
         {top3[1] && (
         <div className="order-2 md:order-1 flex flex-col justify-end">
-          <div className="bg-surface-container-low rounded-xl p-8 relative overflow-hidden group hover:bg-surface-container transition-all">
+          <Link 
+            to={`/profile/${top3[1].username}`} 
+            state={{ profileData: realPlayers.find(p => p.username === top3[1].username) }}
+            className="bg-surface-container-low rounded-xl p-8 relative overflow-hidden group hover:bg-surface-container transition-all block cursor-pointer border border-transparent hover:border-primary/20"
+          >
             <div className="absolute top-0 right-0 p-4 font-headline text-6xl font-black text-on-surface-variant/5">{top3[1].rank.padStart(2, '0')}</div>
             <div className="flex flex-col items-center text-center relative z-10">
               <div className="relative mb-4">
@@ -140,13 +147,17 @@ const Leaderboard = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </Link>
         </div>
         )}
         {/* Rank 1 */}
         {top3[0] && (
         <div className="order-1 md:order-2 flex flex-col justify-end scale-105">
-          <div className="bg-surface-container-high rounded-xl p-10 relative overflow-hidden group border border-primary/20 shadow-[0_20px_50px_rgba(106,170,100,0.1)]">
+          <Link 
+            to={`/profile/${top3[0].username}`} 
+            state={{ profileData: realPlayers.find(p => p.username === top3[0].username) }}
+            className="bg-surface-container-high rounded-xl p-10 relative overflow-hidden group border border-primary/20 shadow-[0_20px_50px_rgba(106,170,100,0.1)] cursor-pointer block hover:border-primary/50 transition-all text-left"
+          >
             <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none"></div>
             <div className="absolute top-0 right-0 p-4 font-headline text-8xl font-black text-primary/10">{top3[0].rank.padStart(2, '0')}</div>
             <div className="flex flex-col items-center text-center relative z-10">
@@ -167,13 +178,17 @@ const Leaderboard = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </Link>
         </div>
         )}
         {/* Rank 3 */}
         {top3[2] && (
         <div className="order-3 flex flex-col justify-end">
-          <div className="bg-surface-container-low rounded-xl p-8 relative overflow-hidden group hover:bg-surface-container transition-all">
+          <Link 
+            to={`/profile/${top3[2].username}`} 
+            state={{ profileData: realPlayers.find(p => p.username === top3[2].username) }}
+            className="bg-surface-container-low rounded-xl p-8 relative overflow-hidden group hover:bg-surface-container transition-all block cursor-pointer border border-transparent hover:border-primary/20 text-left"
+          >
             <div className="absolute top-0 right-0 p-4 font-headline text-6xl font-black text-on-surface-variant/5">{top3[2].rank.padStart(2, '0')}</div>
             <div className="flex flex-col items-center text-center relative z-10">
               <div className="relative mb-4">
@@ -195,7 +210,7 @@ const Leaderboard = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </Link>
         </div>
         )}
       </section>
@@ -217,13 +232,17 @@ const Leaderboard = () => {
             </thead>
             <tbody className="font-body">
               {tableData.map((r, index) => (
-                <tr key={`${r.rank}-${index}`} className="bg-surface-container-low hover:bg-surface-container transition-colors group">
+                <tr 
+                  key={`${r.rank}-${index}`} 
+                  onClick={() => navigate(`/profile/${r.username}`, { state: { profileData: realPlayers.find(p => p.username === r.username) } })}
+                  className="bg-surface-container-low hover:bg-surface-container transition-all group cursor-pointer hover:shadow-lg border-y border-transparent hover:border-primary/10"
+                >
                   <td className="py-4 pl-6 rounded-l-xl font-headline font-black text-on-surface-variant">{r.rank}</td>
                   <td className="py-4">
                     <div className="flex items-center gap-3">
-                      <img alt={r.name} className="w-8 h-8 rounded-full bg-surface-container" src={r.img} />
+                      <img alt={r.name} className="w-8 h-8 rounded-full bg-surface-container border border-outline-variant/20" src={r.img} />
                       <div>
-                        <p className="font-bold text-on-surface">{r.name}</p>
+                        <p className="font-bold text-on-surface group-hover:text-primary transition-colors">{r.name}</p>
                         <p className="text-[10px] text-on-surface-variant/70 uppercase tracking-tighter">{r.tier}</p>
                       </div>
                     </div>
@@ -232,7 +251,7 @@ const Leaderboard = () => {
                   <td className="py-4 font-medium">{r.avg}</td>
                   <td className="py-4 font-medium">{r.wr}</td>
                   <td className={`py-4 pr-6 rounded-r-xl flex items-center gap-1 ${r.trendDir === 'up' ? 'text-primary' : r.trendDir === 'down' ? 'text-error' : 'text-on-surface-variant'}`}>
-                    <span className="material-symbols-outlined text-sm">{r.trendDir === 'up' ? 'keyboard_arrow_up' : r.trendDir === 'down' ? 'keyboard_arrow_down' : 'horizontal_rule'}</span> {r.trend}
+                    <span className="material-symbols-outlined text-sm font-bold">{r.trendDir === 'up' ? 'keyboard_arrow_up' : r.trendDir === 'down' ? 'keyboard_arrow_down' : 'horizontal_rule'}</span> {r.trend}
                   </td>
                 </tr>
               ))}

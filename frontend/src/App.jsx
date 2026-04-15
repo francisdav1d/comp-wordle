@@ -14,6 +14,8 @@ import GameArena from './pages/GameArena';
 import Profile from './pages/Profile';
 import Social from './pages/Social';
 import Leaderboard from './pages/Leaderboard';
+import WorldChat from './pages/WorldChat';
+import PublicProfile from './pages/PublicProfile';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -47,7 +49,9 @@ function App() {
               <Route path="/game-room/:gameId" element={<ProtectedRoute><GameArena /></ProtectedRoute>} />
               <Route path="/social" element={<ProtectedRoute><Social /></ProtectedRoute>} />
               <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
+              <Route path="/world-chat" element={<ProtectedRoute><WorldChat /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+              <Route path="/profile/:username" element={<PublicProfile />} />
               
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
