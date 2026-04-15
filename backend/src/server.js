@@ -24,33 +24,29 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 
 // PERFORMANCE CACHE: Load words into memory to avoid repeated DB calls
 let wordCache = new Set()
+let wordList = []
 async function refreshWordCache() {
-  const { data } = await supabase.from('words').select('word')
+  const { data, error } = await supabase.from('words').select('word')
+  if (error) {
+    throw createHttpError(500, error.message)
+  }
+
   if (data) {
-    wordCache = new Set(data.map(w => w.word.toLowerCase()))
+    wordList = data.map((entry) => entry.word.toLowerCase())
+    wordCache = new Set(wordList)
     console.log(`🚀 Cached ${wordCache.size} words for instant lookup.`)
   }
-}
-refreshWordCache()
-
-let cachedWords = null;
-
-async function getWords() {
-  if (cachedWords) return cachedWords;
-  const { data, error } = await supabase.from('words').select('word');
-  if (error) throw createHttpError(500, error.message);
-  cachedWords = data?.map(w => w.word.toLowerCase()) || [];
-  return cachedWords;
 }
 
 const app = express()
 
-const allowedOrigins = [FRONTEND_URL, 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175']
+const allowedOrigins = (FRONTEND_URL || '').split(',').map(url => url.trim())
 app.use(cors({ 
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
       callback(null, true)
     } else {
+      console.log(`🚫 CORS Blocked: ${origin}`)
       callback(new Error('Not allowed by CORS'))
     }
   }, 
@@ -137,9 +133,12 @@ async function requireAuth(request, _response, next) {
 }
 
 async function getRandomWord() {
-  const words = await getWords();
-  if (!words.length) return 'alert';
-  return words[Math.floor(Math.random() * words.length)];
+  if (!wordList.length) {
+    await refreshWordCache()
+  }
+
+  if (!wordList.length) return 'alert'
+  return wordList[Math.floor(Math.random() * wordList.length)]
 }
 
 async function getProfile(userId) {
@@ -264,21 +263,64 @@ async function getParticipants(gameId) {
   return data ?? []
 }
 
-async function findActivePublicGameForUser(userId, mode) {
-  const { data: game, error } = await supabase
-    .from('games')
-    .select('id, status, mode, is_private')
-    .eq('mode', mode)
-    .eq('is_private', false)
-    .in('status', ['PENDING', 'IN_PROGRESS'])
-    .eq('game_participants.user_id', userId)
-    .maybeSingle();
+async function getParticipantCount(gameId) {
+  const { count, error } = await supabase
+    .from('game_participants')
+    .select('*', { count: 'exact', head: true })
+    .eq('game_id', gameId)
 
   if (error) {
-    throw createHttpError(500, error.message);
+    throw createHttpError(500, error.message)
   }
 
-  return game;
+  return count ?? 0
+}
+
+async function findActivePublicGameForUser(userId, mode) {
+  const { data, error } = await supabase
+    .from('game_participants')
+    .select('game_id, games!inner(id, status, mode, is_private)')
+    .eq('user_id', userId)
+    .eq('games.mode', mode)
+    .eq('games.is_private', false)
+    .in('games.status', ['PENDING', 'IN_PROGRESS'])
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    throw createHttpError(500, error.message)
+  }
+
+  return data?.games ?? null
+}
+
+async function createPrivateLobbyGame({ userId, playerLimit, mode, word }) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const lobbyCode = generateLobbyCode()
+    const { data, error } = await supabase
+      .from('games')
+      .insert({
+        word,
+        status: 'PENDING',
+        mode,
+        player_limit: playerLimit,
+        is_private: true,
+        host_id: userId,
+        lobby_code: lobbyCode,
+      })
+      .select('id, lobby_code')
+      .single()
+
+    if (!error) {
+      return data
+    }
+
+    if (error.code !== '23505') {
+      throw createHttpError(500, error.message)
+    }
+  }
+
+  throw createHttpError(500, 'Failed to generate a unique lobby code.')
 }
 
 app.get('/health', (_request, response) => {
@@ -365,21 +407,19 @@ app.post('/api/matchmaking/join', async (request, response, next) => {
       .eq('mode', mode)
       .eq('is_private', false)
       .order('created_at', { ascending: true })
+      .limit(10)
 
     if (pendingError) {
       throw createHttpError(500, pendingError.message)
     }
 
-    let targetGame = null;
+    let targetGame = null
     for (const game of pendingGames ?? []) {
-      const { count } = await supabase
-        .from('game_participants')
-        .select('*', { count: 'exact', head: true })
-        .eq('game_id', game.id);
+      const count = await getParticipantCount(game.id)
 
       if (count < game.player_limit) {
-        targetGame = game;
-        break;
+        targetGame = game
+        break
       }
     }
 
@@ -413,9 +453,9 @@ app.post('/api/matchmaking/join', async (request, response, next) => {
       throw createHttpError(500, joinError.message)
     }
 
-    const participants = await getParticipants(targetGame.id)
+    const participantCount = await getParticipantCount(targetGame.id)
     let status = targetGame.status
-    if (participants.length >= playerLimit) {
+    if (participantCount >= playerLimit) {
       status = 'IN_PROGRESS'
       const { error: startError } = await supabase
         .from('games')
@@ -438,34 +478,7 @@ app.post('/api/lobbies/private', async (request, response, next) => {
     const userId = request.user.id
     const { playerLimit, mode } = getModeConfig('private', true)
     const word = await getRandomWord()
-
-    let lobbyCode = generateLobbyCode()
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const { data: existing } = await supabase.from('games').select('id').eq('lobby_code', lobbyCode).maybeSingle()
-      if (!existing) {
-        break
-      }
-
-      lobbyCode = generateLobbyCode()
-    }
-
-    const { data: game, error: gameError } = await supabase
-      .from('games')
-      .insert({
-        word,
-        status: 'PENDING',
-        mode,
-        player_limit: playerLimit,
-        is_private: true,
-        host_id: userId,
-        lobby_code: lobbyCode,
-      })
-      .select('id, lobby_code')
-      .single()
-
-    if (gameError) {
-      throw createHttpError(500, gameError.message)
-    }
+    const game = await createPrivateLobbyGame({ userId, playerLimit, mode, word })
 
     const { error: participantError } = await supabase.from('game_participants').insert({
       game_id: game.id,
@@ -506,9 +519,22 @@ app.post('/api/lobbies/private/join', async (request, response, next) => {
       throw createHttpError(404, 'Private lobby not found or no longer joinable.')
     }
 
-    const participants = await getParticipants(game.id)
-    const alreadyJoined = participants.some((participant) => participant.user_id === userId)
-    if (!alreadyJoined && participants.length >= game.player_limit) {
+    const [{ data: existingParticipant, error: existingParticipantError }, participantCount] = await Promise.all([
+      supabase
+        .from('game_participants')
+        .select('id')
+        .eq('game_id', game.id)
+        .eq('user_id', userId)
+        .maybeSingle(),
+      getParticipantCount(game.id),
+    ])
+
+    if (existingParticipantError) {
+      throw createHttpError(500, existingParticipantError.message)
+    }
+
+    const alreadyJoined = Boolean(existingParticipant)
+    if (!alreadyJoined && participantCount >= game.player_limit) {
       throw createHttpError(409, 'This lobby is already full.')
     }
 
@@ -540,8 +566,8 @@ app.post('/api/games/:gameId/start', async (request, response, next) => {
       throw createHttpError(403, 'Only the host can start this lobby.')
     }
 
-    const participants = await getParticipants(game.id)
-    if (participants.length < 2) {
+    const participantCount = await getParticipantCount(game.id)
+    if (participantCount < 2) {
       throw createHttpError(400, 'At least two players are required to start.')
     }
 
@@ -672,6 +698,16 @@ app.use((error, _request, response, _next) => {
   response.status(status).json({ error: error.message || 'Internal server error.' })
 })
 
-app.listen(PORT, () => {
-  console.log(`CompWordle backend listening on port ${PORT}`)
-})
+async function startServer() {
+  try {
+    await refreshWordCache()
+  } catch (error) {
+    console.error('Failed to warm word cache on boot:', error.message)
+  }
+
+  app.listen(PORT, () => {
+    console.log(`CompWordle backend listening on port ${PORT}`)
+  })
+}
+
+startServer()

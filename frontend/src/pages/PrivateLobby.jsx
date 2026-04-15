@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { getGame, getGameParticipants, startGame } from '../lib/api';
+import { startGame } from '../lib/api';
 
 const PrivateLobby = () => {
     const { lobbyId } = useParams();
@@ -31,13 +31,16 @@ const PrivateLobby = () => {
 
     const fetchLobby = async () => {
         try {
-            const [{ game }, { participants }] = await Promise.all([
-                getGame(lobbyId),
-                getGameParticipants(lobbyId),
+            const [{ data: gameData, error: gameError }, { data: participantData, error: participantError }] = await Promise.all([
+                supabase.from('games').select('*').eq('id', lobbyId).single(),
+                supabase.from('game_participants').select('*, profiles(username, avatar_url)').eq('game_id', lobbyId),
             ]);
 
-            setGame(game);
-            setParticipants(participants);
+            if (gameError) throw gameError;
+            if (participantError) throw participantError;
+
+            setGame(gameData);
+            setParticipants(participantData || []);
         } catch (err) {
             console.error('Failed to load private lobby:', err);
         }
@@ -45,8 +48,9 @@ const PrivateLobby = () => {
 
     const fetchParticipants = async () => {
         try {
-            const { participants } = await getGameParticipants(lobbyId);
-            setParticipants(participants);
+            const { data, error } = await supabase.from('game_participants').select('*, profiles(username, avatar_url)').eq('game_id', lobbyId);
+            if (error) throw error;
+            setParticipants(data || []);
         } catch (err) {
             console.error('Failed to refresh participants:', err);
         }

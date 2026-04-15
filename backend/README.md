@@ -25,6 +25,13 @@ This project now has an actual application backend alongside the database SQL.
 4. Install dependencies with `npm install` inside `backend`
 5. Start the API with `npm run dev`
 
+## Render Latency
+
+- Render free instances can sleep, so the first request after idle time can take several seconds.
+- This backend now warms the word cache on boot, but it cannot remove Render cold starts by itself.
+- To keep it warm, ping `GET /health` every 10 to 14 minutes from a cron service or use a paid always-on Render instance.
+- Keep your Render region close to your Supabase region.
+
 ## Routes
 
 - `GET /health`

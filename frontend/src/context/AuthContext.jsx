@@ -40,17 +40,18 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfile = async () => {
+  const fetchProfile = async (userId) => {
     try {
-      const { initApp } = await import('../lib/api');
-      const data = await initApp();
-      
-      if (data.profile) {
-        setUserProfile(data.profile);
-        // We could also store leaderboard/games here if we add them to the context
-      }
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+      setUserProfile(data);
     } catch (err) {
-      console.error('Error fetching optimized profile:', err);
+      console.error('Error fetching profile:', err);
     } finally {
       setLoading(false);
     }
