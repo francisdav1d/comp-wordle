@@ -4,6 +4,18 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { createPrivateLobby, joinMatchmaking, joinPrivateLobby } from '../lib/api';
 
+function getPresenceCount(state) {
+  const uniqueUsers = new Set();
+
+  Object.values(state).forEach((entries) => {
+    entries.forEach((entry) => {
+      uniqueUsers.add(entry.user_id || entry.presence_ref);
+    });
+  });
+
+  return uniqueUsers.size;
+}
+
 const ArenaLobby = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -13,8 +25,29 @@ const ArenaLobby = () => {
   const [joinCode, setJoinCode] = useState('');
 
   useEffect(() => {
-    setOnlineCount(158);
-  }, []);
+    if (!supabase) return;
+
+    const presenceKey = user?.id || `guest-${Math.random().toString(36).slice(2)}`;
+    const channel = supabase.channel('arena-presence', {
+      config: {
+        presence: { key: presenceKey },
+      },
+    });
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        setOnlineCount(getPresenceCount(channel.presenceState()));
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ user_id: user?.id || null, online_at: new Date().toISOString() });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   const handleCreatePrivate = async () => {
     if (!user) return;
